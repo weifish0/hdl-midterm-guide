@@ -1,0 +1,142 @@
+<!--meta {"title": "模擬與 Testbench · HDL Exam 1 Prep", "nav": "tb", "desc": "testbench 結構、讀取 pattern 檔、檢查輸出，以及考試 testbench 的時序"}-->
+<div class="page-head">
+  <span class="eyebrow">Part 4 · 驗證</span>
+  <h1>模擬與 Testbench</h1>
+  <p class="lede">A、B 題的分數是 testbench 給的。看懂它怎麼餵資料、在哪一拍比對，你就知道自己的電路該在哪一拍出答案。</p>
+</div>
+
+<div class="tabs">
+<div class="tablist"></div>
+
+<section class="tabpanel" id="tb-basic" data-label="基本結構">
+<h2>Testbench 是什麼</h2>
+<p>一個沒有 port 的模組：在裡面產生時脈、餵輸入、檢查輸出。它只拿來模擬，不會合成，所以可以用 <code>#延遲</code>、<code>initial</code>、<code>$display</code> 這些「軟體」寫法。</p>
+<pre class="code" data-title="最小 testbench">`timescale 1ns/1ps                 // #1 = 1 ns
+module adder_tb;
+    logic       clk = 0, rst;
+    logic [7:0] a, b;
+    logic [8:0] sum;
+
+    adder8 dut (.a(a), .b(b), .sum(sum));   // 被測電路 (Design Under Test)
+
+    always #5 clk = ~clk;          // 每 5 ns 翻一次 -> 週期 10 ns (100 MHz)
+
+    initial begin
+        a = 8'd200; b = 8'd100;
+        #10;                        // 等 10 ns
+        $display("sum = %0d", sum);
+        @(posedge clk);             // 等到下一個上升緣
+        @(negedge clk);             // 等到下一個下降緣
+        repeat (3) @(posedge clk);  // 等三個上升緣
+        $finish;                    // 結束模擬
+    end
+endmodule</pre>
+
+<h3>為什麼在 negedge 改輸入、在 negedge 檢查？</h3>
+<p>如果剛好在上升緣同時改輸入，模擬器不保證 flip-flop 拿到的是舊值還是新值（race condition）。在下降緣（兩個上升緣正中間）改輸入、看輸出最安全。Lab 2 advanced 的 testbench 規定「只在 negedge 改輸入」就是這個原因。</p>
+<figure>
+<div class="fig wave" data-wave='{"signals":[{"name":"clk","wave":"1010101010"},{"name":"input","wave":"x=.=.=.=..","data":["A0","A1","A2","A3"]},{"name":"out (reg)","wave":"x.=.=.=.=.","data":["f(A0)","f(A1)","f(A2)","f(A3)"]}],"marks":[{"at":1,"label":"negedge 改"},{"at":2,"label":"posedge 存"},{"at":3,"label":"negedge 查"}],"hscale":1.4}'></div>
+<figcaption>每格是半個週期。輸入在下降緣改、在上升緣被存進 flip-flop、在下一個下降緣檢查，三件事互不重疊。</figcaption>
+</figure>
+
+<h3>常用系統函式</h3>
+<div class="tbl"><table>
+<thead><tr><th>寫法</th><th>用途</th></tr></thead>
+<tbody>
+<tr><td><code>$display("x=%0d y=%b z=%h", x, y, z)</code></td><td>印一行。<code>%d</code> 十進位、<code>%0d</code> 不補空白、<code>%b</code> 二進位、<code>%h</code> 十六進位、<code>%t</code> 時間</td></tr>
+<tr><td><code>$monitor("...", ...)</code></td><td>訊號一變就自動印</td></tr>
+<tr><td><code>$time</code></td><td>目前模擬時間</td></tr>
+<tr><td><code>$finish</code></td><td>結束模擬</td></tr>
+<tr><td><code>$signed(x)</code></td><td>把 x 當成有號數（印負數時用）</td></tr>
+<tr><td><code>$readmemb / $readmemh</code></td><td>從檔案讀二進位 / 十六進位到陣列</td></tr>
+<tr><td><code>$fopen / $fscanf / $fclose</code></td><td>一行一行讀檔</td></tr>
+</tbody></table></div>
+</section>
+
+<section class="tabpanel" id="tb-files" data-label="讀 pattern 檔">
+<h2>Pattern 檔：輸入與答案</h2>
+<p>考試的 pattern 檔每一行是一組「輸入 + 正確答案」。看懂格式，就能自己手算驗證。</p>
+<h3><code>$readmemh</code>：2023 A 題</h3>
+<pre class="code" data-lang="dat" data-title="pattern_A.dat（前三行）">3_ae_f3_fe84
+0_17_d3_fbf8
+2_78_70_ffff</pre>
+<pre class="code" data-title="testbench 怎麼讀">reg [35:0] mem [0:998];
+$readmemh("pattern_A.dat", mem);       // 每行一個元素，底線會被忽略
+{ctrl, A, B, ans} = mem[i][33:0];       // 2 + 8 + 8 + 16 = 34 bits</pre>
+<p>手算第二行：ctrl = 0（A*B+3），A = 0x17 = 23，B = 0xd3 = 211 → 有號 -45。23 × (-45) + 3 = -1032 = <code>16'hfbf8</code> ✔。</p>
+<div class="warn"><span class="tag">空白會切斷</span><code>$readmemh</code> 用空白分隔元素。<code>3 ae f3 fe84</code> 會被讀成四個元素，要用底線 <code>3_ae_f3_fe84</code>。</div>
+
+<h3><code>$fscanf</code>：2023 B 題</h3>
+<pre class="code" data-lang="dat" data-title="pattern_B.dat">010101111001 01011111 111
+000101111101 01011111 111</pre>
+<pre class="code" data-title="一行讀三個二進位數">file = $fopen("pattern_B.dat", "r");
+$fscanf(file, "%b %b %b", data, decoded_ans, ans);</pre>
+
+<h3>Lab 2 practice 的格式</h3>
+<pre class="code" data-title="{rst, A, B, expected_out} 共 25 bits">logic [24:0] patterns [0:31];
+$readmemb("pattern_A_practice.dat", patterns);
+{expected_rst, A, B, expected_out} = patterns[i];</pre>
+</section>
+
+<section class="tabpanel" id="tb-check" data-label="檢查輸出">
+<h2>比對答案</h2>
+<pre class="code" data-title="比對 + 統計">integer err = 0;
+...
+@(negedge clk);
+if (out !== expected) begin          // 用 !== 才抓得到 X 和 Z
+    err = err + 1;
+    $display("<ERROR> A=%0d B=%0d out=%0d expected=%0d", A, B, $signed(out), $signed(expected));
+end
+...
+if (err == 0) $display("ALL PASS");</pre>
+<div class="key"><span class="tag">!= 與 !==</span><code>out != 5</code> 在 out 是 X 時結果是 X（if 當成 false，<strong>錯誤被放過</strong>）。<code>out !== 5</code> 逐位元比較 0/1/X/Z，X 一定不等於 5。testbench 都用 <code>!==</code>。</div>
+
+<h3>用 task 包裝重複的步驟</h3>
+<pre class="code" data-title="task（Lab 5 testbench 風格）">task automatic write_mem(input [6:0] addr, input [3:0] data);
+    @(negedge clk);
+    we = 1; w_addr = addr; din = data;
+    @(negedge clk);
+    we = 0;
+endtask
+
+initial begin
+    write_mem(7'h5A, 4'd4);
+    write_mem(7'h01, 4'd5);
+end</pre>
+
+<h3>看波形除錯</h3>
+<ul>
+<li>Scope 視窗選 <code>dut</code>，把內部訊號（state、counter）拖進波形視窗。</li>
+<li>Radix 改成 Signed Decimal 看有號數。</li>
+<li>從第一個錯誤的 pattern 開始往回看：輸入對嗎？組合結果對嗎？暫存器有在正確的邊緣更新嗎？</li>
+</ul>
+</section>
+
+<section class="tabpanel" id="tb-exam" data-label="讀懂考試 testbench">
+<h2>拆解 2023 A 題的 testbench</h2>
+<p>這段決定了你的電路要「晚一拍」輸出。</p>
+<pre class="code" data-title="exam1_A_tb.v（重點節錄）">// 餵資料：每個 posedge 後 1 個時間單位換下一組
+for (feed_i = 0; feed_i < PATTERN_NUM; feed_i = feed_i + 1) begin
+    @(posedge clk);
+    #1;
+    {last_ctrl, last_A, last_B, last_ans} = {ctrl, A, B, ans};  // 記住「上一組」
+    {ctrl, A, B, ans} = mem[feed_i][33:0];                       // 換新的
+end
+
+// 檢查：每個 negedge 比對 out 和「上一組」的答案
+@(negedge clk);
+for (fetch_i = 0; fetch_i < PATTERN_NUM - 1; fetch_i = fetch_i + 1) begin
+    @(negedge clk);
+    if (out !== last_ans) ...    // ← 比的是 last_ans
+end</pre>
+<figure>
+<div class="fig wave" data-wave='{"signals":[{"name":"clk","wave":"p......"},{"name":"A,B,ctrl","wave":"x.====.","data":["P0","P1","P2","P3"]},{"name":"last_ans","wave":"x..===.","data":["ans0","ans1","ans2"]},{"name":"out (要)","wave":"x..===.","data":["ans0","ans1","ans2"]}],"marks":[{"at":3.5,"label":"negedge 比對"}],"hscale":1.3}'></div>
+<figcaption>P0 在第 1 拍後送進來；第 2 個上升緣你的 flip-flop 存下 f(P0)；同時 testbench 把 last_ans 換成 ans0。在 negedge 比對時兩者相等。</figcaption>
+</figure>
+<div class="warn"><span class="tag">如果你用 assign 直接輸出</span>out 會在輸入一變就變成 f(P1)，但 testbench 比的是 ans0 → 全部 FAIL。所以 A 題<strong>一定</strong>要有 <code>always_ff</code> 那一級。</div>
+<p>2023 B 題的 testbench 結構完全一樣（比對 <code>last_decoded_ans</code>、<code>last_ans</code>），所以 B 題的 <code>decoded</code> 和 <code>out</code> 也要暫存。</p>
+
+<h3>reset 怎麼測</h3>
+<p>testbench 先把輸入設成 Z、拉 rst 10 個週期，再放開。Lab 2 的 testbench 還會在「兩個上升緣中間」拉 reset，檢查你是不是同步 reset（非同步會立刻變 0 → FAIL）。</p>
+</section>
+</div>

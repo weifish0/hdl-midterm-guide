@@ -1,0 +1,228 @@
+<!--meta {"title": "FPGA 實作 · HDL Exam 1 Prep", "nav": "fpga", "desc": "Basys3 腳位、七段顯示器掃描、C 題架構、Vivado 流程與除錯"}-->
+<div class="page-head">
+  <span class="eyebrow">Part 3 · FPGA</span>
+  <h1>FPGA 實作（C 題 40%）</h1>
+  <p class="lede">C 題要你在 Basys3 上做一個看得見的系統。分數按功能一項一項給，所以架構清楚、能合成，比什麼都重要。</p>
+</div>
+
+<div class="tabs">
+<div class="tablist"></div>
+
+<!-- ============================================================ -->
+<section class="tabpanel" id="basys3" data-label="Basys3 輸入輸出">
+<h2>Basys3 板子上有什麼</h2>
+<div class="tbl"><table>
+<thead><tr><th>元件</th><th>訊號</th><th>腳位</th><th>注意</th></tr></thead>
+<tbody>
+<tr><td>時脈</td><td><code>clk</code></td><td>W5</td><td>100 MHz，週期 10 ns</td></tr>
+<tr><td>按鈕</td><td>BTNC / BTNU / BTNL / BTNR / BTND</td><td>U18 / T18 / W19 / T17 / U17</td><td>按下 = 1。2022、2023 年：C=rst、R=en、L=set、U=up、D=down</td></tr>
+<tr><td>開關</td><td><code>sw[15:0]</code></td><td>SW0 = V17 … SW15 = R2</td><td>往上撥 = 1</td></tr>
+<tr><td>LED</td><td><code>led[15:0]</code></td><td>LD0 = U16 … LD15 = L1</td><td>1 = 亮。<strong>led[15] 在最左邊</strong></td></tr>
+<tr><td>七段數字選擇</td><td><code>DIGIT[3:0]</code>（an）</td><td>U2, U4, V4, W4</td><td><strong>低電位有效</strong>；DIGIT[3] 是最左邊那位</td></tr>
+<tr><td>七段筆劃</td><td><code>DISPLAY[6:0]</code>（seg）</td><td>W7(a) W6(b) U8(c) V8(d) U5(e) V5(f) U7(g)</td><td><strong>低電位有效</strong>：0 = 亮</td></tr>
+<tr><td>小數點</td><td><code>dp</code></td><td>V7</td><td>Lab 3 advanced 問答題</td></tr>
+</tbody></table></div>
+<div class="warn"><span class="tag">方向感</span>「往左」= index 變大（往 LD15），「往右」= index 變小（往 LD0）。題目寫 "from left to right" 的意思是 index 遞減。每次寫移動都在紙上確認一次。</div>
+
+<h3>XDC：把訊號名稱接到腳位</h3>
+<pre class="code" data-lang="tcl" data-title="exam1_C.xdc（節錄）">set_property PACKAGE_PIN W5 [get_ports clk]
+set_property IOSTANDARD LVCMOS33 [get_ports clk]
+create_clock -add -name sys_clk_pin -period 10.00 -waveform {0 5} [get_ports clk]
+
+set_property PACKAGE_PIN U18 [get_ports rst]      ;# BTNC
+set_property PACKAGE_PIN T17 [get_ports en]       ;# BTNR
+set_property PACKAGE_PIN U16 [get_ports {led[0]}]
+set_property PACKAGE_PIN W7  [get_ports {DISPLAY[0]}]   ;# segment a
+set_property PACKAGE_PIN U2  [get_ports {DIGIT[0]}]     ;# rightmost digit</pre>
+<p>考試會給 XDC，<strong>不能改</strong>。你的 module port 名稱要跟 XDC 裡的 <code>get_ports</code> 一致（不要改範本的 I/O 就不會錯）。</p>
+</section>
+
+<!-- ============================================================ -->
+<section class="tabpanel" id="sevenseg" data-label="七段顯示器">
+<h2>七段顯示器</h2>
+<p>每一位數有 a–g 七個筆劃。<code>DISPLAY = {g, f, e, d, c, b, a}</code>，<strong>0 是亮</strong>。點下面的筆劃，看看要送什麼值：</p>
+<div class="card segplay">
+  <svg viewBox="0 0 120 200" role="img" aria-label="seven segment tester">
+    <polygon class="s" data-seg="a" points="22,10 98,10 86,22 34,22"/>
+    <polygon class="s" data-seg="b" points="100,12 100,94 88,88 88,24"/>
+    <polygon class="s" data-seg="c" points="100,106 100,188 88,176 88,112"/>
+    <polygon class="s" data-seg="d" points="22,190 98,190 86,178 34,178"/>
+    <polygon class="s" data-seg="e" points="20,106 32,112 32,176 20,188"/>
+    <polygon class="s" data-seg="f" points="20,12 32,24 32,88 20,94"/>
+    <polygon class="s" data-seg="g" points="24,100 34,94 86,94 96,100 86,106 34,106"/>
+    <text x="56" y="34" font-size="10" class="d-muted">a</text><text x="74" y="56" font-size="10" class="d-muted">b</text>
+    <text x="74" y="150" font-size="10" class="d-muted">c</text><text x="56" y="172" font-size="10" class="d-muted">d</text>
+    <text x="40" y="150" font-size="10" class="d-muted">e</text><text x="40" y="56" font-size="10" class="d-muted">f</text>
+    <text x="56" y="90" font-size="10" class="d-muted">g</text>
+  </svg>
+  <div style="display:grid;gap:10px;min-width:0">
+    <div class="segbits"></div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px">
+      <button type="button" class="theme-btn" data-digit="0">0</button><button type="button" class="theme-btn" data-digit="1">1</button>
+      <button type="button" class="theme-btn" data-digit="2">2</button><button type="button" class="theme-btn" data-digit="3">3</button>
+      <button type="button" class="theme-btn" data-digit="4">4</button><button type="button" class="theme-btn" data-digit="5">5</button>
+      <button type="button" class="theme-btn" data-digit="6">6</button><button type="button" class="theme-btn" data-digit="7">7</button>
+      <button type="button" class="theme-btn" data-digit="8">8</button><button type="button" class="theme-btn" data-digit="9">9</button>
+    </div>
+    <p class="muted" style="margin:0">字母：A = <code>0001000</code>、E = <code>0000110</code>、P = <code>0001100</code>、r = <code>0101111</code>、U = <code>1000001</code>、- = <code>0111111</code>、空白 = <code>1111111</code>；S 和 5 一樣、I 和 1 一樣。</p>
+  </div>
+</div>
+
+<h3>掃描（multiplexing）：四位數輪流亮</h3>
+<p>四位數共用同一組 <code>DISPLAY</code> 線，所以一次只能亮一位。輪流快速點亮（每位約 0.33 ms），人眼就會看到四位同時亮。</p>
+<figure>
+<div class="fig wave" data-wave='{"title":"seven segment scanning","signals":[{"name":"refresh[16:15]","wave":"========","data":["0","1","2","3","0","1","2","3"]},{"name":"DIGIT","wave":"========","data":["1110","1101","1011","0111","1110","1101","1011","0111"]},{"name":"DISPLAY","wave":"========","data":["個位","十位","百位","千位","個位","十位","百位","千位"]}],"hscale":1.7,"nameW":110}'></div>
+<figcaption>每格是 2<sup>15</sup> 個 clk。DIGIT 哪一位是 0，DISPLAY 就顯示哪一位的字。</figcaption>
+</figure>
+<pre class="code" data-title="seven_seg 的核心">logic [16:0] refresh = '0;
+always_ff @(posedge clk) refresh <= refresh + 1'b1;
+
+always_comb begin
+    case (refresh[16:15])          // 用最高兩位選擇現在亮哪一位
+        2'd0: begin DIGIT = 4'b1110; ch = c0; end   // 最右
+        2'd1: begin DIGIT = 4'b1101; ch = c1; end
+        2'd2: begin DIGIT = 4'b1011; ch = c2; end
+        default: begin DIGIT = 4'b0111; ch = c3; end   // 最左
+    endcase
+end
+// 再用一個 case 把 ch（0~9、字母代碼）轉成 DISPLAY</pre>
+<p>完整模組在 <a href="design.html#button">設計模式 → 按鈕</a> 下方的 helpers.sv。設計上的好處：你的主電路只需要決定「四個位置各顯示什麼字」（<code>c3..c0</code>），掃描細節全部交給它。</p>
+
+<div class="note"><span class="tag">範本的 SevenSegment</span>2023 年範本的 <code>SevenSegment</code> 吃一個 16-bit <code>nums</code>（每 4 bits 一位），內建代碼 10=A、11=I、12=空白、13=U、14=S、15=-。直接用範本也可以，只要記得它的代碼表；需要範本沒有的字（例如 R、P）就自己改 case。</div>
+</section>
+
+<!-- ============================================================ -->
+<section class="tabpanel" id="arch" data-label="C 題標準架構">
+<h2>C 題的標準架構</h2>
+<p>三年的 C 題都能套進同一張圖。考試時先把這個骨架打好，再填每個方塊的內容。</p>
+<figure>
+<div class="fig">
+<svg viewBox="0 0 760 330" width="760" height="330" role="img" aria-label="exam C architecture">
+  <g class="d-stroke" fill="none" stroke-width="1.5">
+    <rect x="20" y="40" width="110" height="60" class="d-fill"/>
+    <rect x="20" y="130" width="110" height="60" class="d-fill"/>
+    <rect x="20" y="220" width="110" height="60" class="d-fill"/>
+    <rect x="190" y="40" width="130" height="60" class="d-fill"/>
+    <rect x="190" y="220" width="130" height="60" class="d-fill"/>
+    <rect x="380" y="70" width="160" height="190" class="d-fill"/>
+    <rect x="600" y="70" width="140" height="70" class="d-fill"/>
+    <rect x="600" y="190" width="140" height="70" class="d-fill"/>
+    <path d="M130 70 H190"/><path d="M320 70 H380"/>
+    <path d="M130 160 H360 V160 H380"/>
+    <path d="M130 250 H190"/><path d="M320 250 H380"/>
+    <path d="M540 105 H600"/><path d="M540 225 H600"/>
+  </g>
+  <rect x="380" y="70" width="160" height="34" class="d-accent-f" opacity=".14"/>
+  <g font-size="13">
+    <text x="38" y="66" class="d-text">按鈕</text><text x="38" y="86" class="d-muted" font-size="11">en set up down</text>
+    <text x="38" y="156" class="d-text">開關 sw</text><text x="38" y="176" class="d-muted" font-size="11">直接用</text>
+    <text x="38" y="246" class="d-text">clk 100MHz</text><text x="38" y="266" class="d-muted" font-size="11">唯一的時脈</text>
+    <text x="202" y="66" class="d-text">btn_pulse ×4</text><text x="202" y="86" class="d-muted" font-size="11">1 週期脈衝</text>
+    <text x="202" y="246" class="d-text">tick 產生器</text><text x="202" y="266" class="d-muted" font-size="11">2^24 / 2^25 / 2^26</text>
+    <text x="392" y="92" class="d-text">FSM 狀態</text>
+    <text x="392" y="130" class="d-text">資料暫存器</text>
+    <text x="392" y="152" class="d-muted" font-size="11">位置、方向、模式</text>
+    <text x="392" y="172" class="d-muted" font-size="11">分數、計時器</text>
+    <text x="392" y="192" class="d-muted" font-size="11">旗子/蘋果/牆 bitmap</text>
+    <text x="392" y="236" class="d-muted" font-size="11">一個 always_ff</text>
+    <text x="612" y="100" class="d-text">LED 輸出</text><text x="612" y="120" class="d-muted" font-size="11">遮罩 OR 起來</text>
+    <text x="612" y="220" class="d-text">七段顯示</text><text x="612" y="240" class="d-muted" font-size="11">c3..c0 → seven_seg</text>
+  </g>
+</svg>
+</div>
+<figcaption>所有暫存器都在 100 MHz 的 clk 上；慢速事件用 tick 當 enable；按鈕變成 1 週期脈衝。輸出都是組合邏輯（依狀態決定顯示什麼）。</figcaption>
+</figure>
+
+<h3>拿分的順序</h3>
+<ol class="steps">
+<li><strong>骨架</strong>：貼上 btn_pulse、seven_seg、tick 產生器；宣告 <code>enum</code> 狀態；LED 先輸出常數。合成一次，確定能產生 bitstream。</li>
+<li><strong>RESET 狀態</strong>（通常 5%）：初始位置的 LED、七段顯示的初始畫面。燒進板子看。</li>
+<li><strong>狀態轉移</strong>：按 en 進 START、再按進 PAUSE。用七段顯示器顯示狀態字母來確認。</li>
+<li><strong>移動</strong>：在 START 狀態用 tick 更新位置；處理邊界與環繞。</li>
+<li><strong>互動</strong>：碰撞、反彈、加分、set 加旗子。每做完一項就產生 bitstream、上傳一次。</li>
+<li><strong>結束狀態</strong>：FINISH 顯示文字、LED 閃爍。</li>
+</ol>
+
+<h3>LED 輸出 = 把各種東西 OR 起來</h3>
+<pre class="code" data-title="LED 組合">always_comb begin
+    if (state == S_FINISH) led = blink ? 16'hAAAA : 16'h5555;
+    else                   led = wall | (16'b1 << p1) | (16'b1 << p2) | apples;
+end</pre>
+
+<h3>要先想清楚的規格細節</h3>
+<ul>
+<li>兩個物體<strong>同一個 tick</strong> 都要移動時，碰撞要用「移動後」的位置判斷，還是「移動前」？（看題目的範例圖，一格一格對）</li>
+<li>邊界是環繞（LD0 → LD15）還是反彈？</li>
+<li>同時碰到同一個目標，誰得分？（2022：AI；2023：Snake111）</li>
+<li>哪些按鈕在哪些狀態有效？（2023：mode 在 RESET 不能改；蘋果只能在 START 加）</li>
+<li>計時器 / 分數到上限之後，還會繼續變嗎？</li>
+</ul>
+<p>題目沒寫清楚的情況，看 demo 影片；還是不確定就挑一個合理的做法，助教通常不會測模稜兩可的情況（2022 年題目就寫明「player_user 擴張時碰到兩面旗不用考慮」）。</p>
+</section>
+
+<!-- ============================================================ -->
+<section class="tabpanel" id="vivado" data-label="Vivado 流程">
+<h2>Vivado 操作流程</h2>
+<h3>模擬題（A、B）</h3>
+<ol class="steps">
+<li>Create Project → RTL Project → 選板子 <strong>xc7a35tcpg236-1</strong>（Basys3）。</li>
+<li>Add Sources → Add or create design sources → 加入 <code>exam1_A.sv</code>（範本）。</li>
+<li>Add Sources → Add or create <strong>simulation</strong> sources → 加入 <code>exam1_A_tb.v</code> <strong>和 <code>pattern_A.dat</code></strong>（檔案類型選 All Files 才看得到 .dat）。</li>
+<li>Simulation Sources 裡對 testbench 按右鍵 → Set as Top。</li>
+<li>Run Simulation → Run Behavioral Simulation，看 Tcl Console 的 PASS / FAIL 訊息。</li>
+<li>如果訊息說模擬時間不夠：Tools → Settings → Simulation → Simulation 分頁 → <code>xsim.simulate.runtime</code> 改大（例如 10000ns 或 <code>-all</code>），Apply 後重跑。</li>
+</ol>
+<div class="warn"><span class="tag">找不到 pattern 檔</span>testbench 會印出 "Can not find pattern_A.dat"。原因幾乎都是 .dat 沒加進 simulation sources，或加到 design sources 去了。</div>
+
+<h3>FPGA 題（C）</h3>
+<ol class="steps">
+<li>加入 <code>exam1_C.sv</code>（design source）和 <code>exam1_C.xdc</code>（constraints）。</li>
+<li>Run Synthesis → 看 Messages 有沒有 Critical Warning（腳位沒接、多重驅動）。</li>
+<li>Run Implementation → Generate Bitstream。</li>
+<li>Open Hardware Manager → Open Target → Auto Connect → Program Device，選產生的 <code>.bit</code>。</li>
+<li>改了程式就要從合成重跑。合成到 bitstream 大約要 2–5 分鐘，提早開始。</li>
+</ol>
+
+<h3>模擬 C 題（選用但很有用）</h3>
+<p>C 題沒有 testbench，但你可以自己寫一個很短的，把速度參數縮小，看 LED 怎麼變。比燒板子快很多。</p>
+<pre class="code" data-title="C 題小 testbench">`timescale 1ns/1ps
+module tb;
+    logic clk = 0, rst = 1, en = 0, set = 0, up = 0, down = 0;
+    logic [15:0] sw = 0;
+    logic [3:0] DIGIT; logic [6:0] DISPLAY; logic [15:0] led;
+    exam1_C #(.T0(4), .DB(1)) dut (.*);     // tick 變成每 16 個週期
+    always #5 clk = ~clk;
+
+    always @(led) $display("t=%0t led=%b state=%s", $time, led, dut.state.name());
+
+    initial begin
+        repeat (5) @(posedge clk); rst = 0;
+        en = 1; repeat (20) @(posedge clk); en = 0;     // 按一下 en
+        repeat (500) @(posedge clk);
+        $finish;
+    end
+endmodule</pre>
+</section>
+
+<!-- ============================================================ -->
+<section class="tabpanel" id="debug" data-label="常見錯誤">
+<h2>常見錯誤與解法</h2>
+<div class="tbl"><table>
+<thead><tr><th>症狀</th><th>原因</th><th>解法</th></tr></thead>
+<tbody>
+<tr><td>模擬輸出全是 X</td><td>沒有 reset、暫存器沒初值；或同一個訊號被兩個地方驅動</td><td>確認 reset 分支有指定所有暫存器；搜尋該訊號被指定的地方</td></tr>
+<tr><td>模擬輸出全是 Z</td><td>output 沒有被驅動，或實例化時 port 名稱打錯</td><td>檢查 port 連接；看 Vivado 的 warning</td></tr>
+<tr><td><code>Module ... doesn't have a timescale</code></td><td>testbench 有 <code>`timescale</code>、你的檔案沒有</td><td>在你的檔案最上面加 <code>`timescale 1ns/1ps</code></td></tr>
+<tr><td>結果差一點點（例如負數錯）</td><td>某個運算元是 unsigned，整個式子變無號</td><td>檢查 <code>signed</code> 宣告、常數加 <code>'s</code>、part-select 用 <code>$signed()</code></td></tr>
+<tr><td>結果高位元被砍</td><td>中間結果寬度不夠</td><td>把中間變數宣告寬一點；或用 cast <code>9'(a+b)</code></td></tr>
+<tr><td>早一拍或晚一拍</td><td>A 題用了 <code>assign</code>（沒暫存）；或多加了一級暫存</td><td>看 testbench 在哪一拍比對（見 <a href="tb.html#tb-exam">讀懂考試 testbench</a>）</td></tr>
+<tr><td>Multiple driver / multi-driven net</td><td>兩個 always 指定同一個訊號</td><td>合併到同一個 always</td></tr>
+<tr><td>按一下按鈕跳好幾格</td><td>沒做 one-pulse，或 one-pulse 和 FSM 在不同時脈</td><td>用 btn_pulse，全部同一個 clk</td></tr>
+<tr><td>按按鈕沒反應</td><td>FSM 跑在慢時脈，漏掉 1 週期的脈衝</td><td>同上</td></tr>
+<tr><td>Inferred latch 警告</td><td><code>always_comb</code> 某些路徑沒指定</td><td>先給預設值；case 加 default</td></tr>
+<tr><td>Bitstream 失敗：Unconstrained / NSTD-1 / UCIO-1</td><td>module 有 port 沒在 XDC 裡（改了 I/O 名稱）</td><td>port 名稱改回跟範本一致</td></tr>
+<tr><td>七段顯示亂碼或左右顛倒</td><td>DIGIT 順序搞反、或忘了低電位有效</td><td>DIGIT = 4'b1110 是最右位；DISPLAY 0 = 亮</td></tr>
+<tr><td>LED 移動方向相反</td><td>左右與 index 的關係搞反</td><td>左 = index + 1</td></tr>
+</tbody></table></div>
+</section>
+</div>

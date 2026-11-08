@@ -1,0 +1,547 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>設計模式 · HDL Exam 1 Prep</title>
+<meta name="description" content="FSM、計數器與 tick、按鈕去彈跳、LFSR、記憶體、不用除法與取餘數的技巧">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=JetBrains+Mono:wght@400;600&family=Noto+Sans+TC:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="assets/style.css">
+<script>try{var t=localStorage.getItem("hdl-theme");if(t&&t!=="system")document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body>
+<header class="top">
+  <div class="top-inner">
+    <div class="brand-row">
+      <a class="brand" href="index.html"><span class="seg" aria-hidden="true"><svg viewBox="0 0 16 28"><polygon points="3,1 13,1 11,3 5,3" class="off"/><polygon points="14,2 14,13 12,12 12,4" class="off"/><polygon points="14,15 14,26 12,24 12,16" class="off"/><polygon points="3,27 13,27 11,25 5,25" class="on"/><polygon points="2,15 4,16 4,24 2,26" class="on"/><polygon points="2,2 4,4 4,12 2,13" class="on"/><polygon points="3,14 5,13 11,13 13,14 11,15 5,15" class="off"/></svg><svg viewBox="0 0 16 28"><polygon points="3,1 13,1 11,3 5,3" class="on"/><polygon points="14,2 14,13 12,12 12,4" class="on"/><polygon points="14,15 14,26 12,24 12,16" class="on"/><polygon points="3,27 13,27 11,25 5,25" class="off"/><polygon points="2,15 4,16 4,24 2,26" class="on"/><polygon points="2,2 4,4 4,12 2,13" class="on"/><polygon points="3,14 5,13 11,13 13,14 11,15 5,15" class="on"/></svg><svg viewBox="0 0 16 28"><polygon points="3,1 13,1 11,3 5,3" class="off"/><polygon points="14,2 14,13 12,12 12,4" class="off"/><polygon points="14,15 14,26 12,24 12,16" class="on"/><polygon points="3,27 13,27 11,25 5,25" class="on"/><polygon points="2,15 4,16 4,24 2,26" class="on"/><polygon points="2,2 4,4 4,12 2,13" class="on"/><polygon points="3,14 5,13 11,13 13,14 11,15 5,15" class="on"/></svg><svg viewBox="0 0 16 28"><polygon points="3,1 13,1 11,3 5,3" class="on"/><polygon points="14,2 14,13 12,12 12,4" class="off"/><polygon points="14,15 14,26 12,24 12,16" class="on"/><polygon points="3,27 13,27 11,25 5,25" class="on"/><polygon points="2,15 4,16 4,24 2,26" class="off"/><polygon points="2,2 4,4 4,12 2,13" class="on"/><polygon points="3,14 5,13 11,13 13,14 11,15 5,15" class="on"/></svg></span><span><span class="brand-name">HDL Exam 1 Prep</span><br><span class="brand-sub">硬體設計與實驗 · 期中上機考 · SystemVerilog</span></span></a>
+      <button type="button" class="theme-btn" id="theme-btn">主題：系統</button>
+    </div>
+    <nav class="pagenav" aria-label="頁面"><a href="index.html">總覽</a><a href="sv.html">SystemVerilog 語法</a><a href="design.html" aria-current="page">設計模式</a><a href="fpga.html">FPGA 實作</a><a href="tb.html">模擬與 Testbench</a><a href="labs.html">Lab 1–5</a><a href="exams.html">歷屆考題</a><a href="mock.html">模擬考</a><a href="cheat.html">考場速查</a></nav>
+  </div>
+</header>
+<main>
+<div class="page-head">
+  <span class="eyebrow">Part 2 · 設計模式</span>
+  <h1>設計模式：考題的零件</h1>
+  <p class="lede">每一題 C 題都是這幾個零件拼起來的：狀態機、不同速度的 tick、按鈕脈衝、LED 位置運算、七段顯示。B 題則常用到數學技巧和記憶體。</p>
+</div>
+
+<div class="tabs">
+<div class="tablist"></div>
+
+<!-- ============================================================ -->
+<section class="tabpanel" id="fsm" data-label="有限狀態機 FSM">
+<h2>FSM：把「規則」變成電路</h2>
+<p>題目寫「有 RESET、START、PAUSE 三個狀態，按 en 從 RESET 進 START……」，這就是在描述 FSM。先畫圖，再寫碼。</p>
+
+<pre class="mermaid">
+stateDiagram-v2
+    direction LR
+    [*] --> INITIAL: rst
+    INITIAL --> LOAD: 下一個 clk
+    LOAD --> PLAY: 16 顆 LED 全亮
+    PLAY --> PLAY: end_light = 0
+    PLAY --> FINAL: end_light = 1
+    FINAL --> INITIAL: 閃完 3 秒
+</pre>
+<p class="muted">Lab 3 practice 的狀態圖。畫圖時把「轉移條件」寫在箭頭上，「這個狀態要輸出什麼」寫在旁邊。</p>
+
+<h3>寫法一：三段式（課堂標準）</h3>
+<pre class="code" data-title="FSM 三段式">typedef enum logic [1:0] {INITIAL, LOAD, PLAY, FINAL} state_t;
+state_t state, next_state;
+
+// (1) 狀態暫存器：只做這件事
+always_ff @(posedge clk or posedge rst) begin
+    if (rst) state <= INITIAL;
+    else     state <= next_state;
+end
+
+// (2) 下一狀態邏輯：組合
+always_comb begin
+    next_state = state;                 // 預設：留在原狀態（避免 latch）
+    case (state)
+        INITIAL: next_state = LOAD;
+        LOAD:    if (load_cnt == 16) next_state = PLAY;
+        PLAY:    if (end_light)      next_state = FINAL;
+        FINAL:   if (done)           next_state = INITIAL;
+    endcase
+end
+
+// (3) 輸出邏輯：組合（Moore：只看狀態）
+always_comb begin
+    case (state)
+        INITIAL: led = 16'hFFFF;
+        LOAD:    led = ~(16'hFFFF << load_cnt);
+        default: led = 16'h0000;
+    endcase
+end</pre>
+
+<h3>寫法二：狀態與資料一起放在一個 always_ff（C 題很好用）</h3>
+<p>C 題的狀態轉換通常伴隨一堆資料更新（分數歸零、位置重設…）。把它們寫在同一個 <code>case</code> 裡，比拆成三段好讀：</p>
+<pre class="code" data-title="單一 always_ff 風格">always_ff @(posedge clk) begin
+    if (rst) begin
+        state <= S_RESET;
+        pos   <= 4'd15;  score <= '0;      // 所有暫存器的初始值都在這裡
+    end else begin
+        case (state)
+            S_RESET: if (en_p) state <= S_START;
+            S_START: begin
+                if (en_p) state <= S_PAUSE;
+                if (tick) pos <= pos - 4'd1;     // 這個狀態才會動
+                if (score == 4'd10) state <= S_FINISH;
+            end
+            S_PAUSE: if (en_p) state <= S_START;
+            default: ;                           // S_FINISH
+        endcase
+    end
+end</pre>
+<div class="warn"><span class="tag">同一個 always 裡指定兩次？</span>非阻塞指定時，<strong>最後一個執行到的 <code>&lt;=</code> 會贏</strong>。上面 <code>en_p</code> 和 <code>score == 10</code> 同時成立時，進 FINISH。可以利用這點寫優先順序，但不要跨 always 區塊指定同一個訊號。</div>
+
+<h3>Moore vs Mealy</h3>
+<div class="tbl"><table>
+<thead><tr><th></th><th>Moore</th><th>Mealy</th></tr></thead>
+<tbody>
+<tr><td>輸出取決於</td><td>只有目前狀態</td><td>狀態 + 目前輸入</td></tr>
+<tr><td>反應時間</td><td>輸入改變後要等狀態變（晚一拍）</td><td>立即</td></tr>
+<tr><td>考試</td><td>LED/七段顯示用 Moore 就好</td><td>少用</td></tr>
+</tbody></table></div>
+</section>
+
+<!-- ============================================================ -->
+<section class="tabpanel" id="tick" data-label="計數器與 tick">
+<h2>時間：除頻器 vs tick</h2>
+<p>Basys3 的時脈是 100 MHz（每 10 ns 一個週期）。LED 要每 0.3 秒動一次，就要「數」很多個週期。題目常寫「以 100MHz/2<sup>25</sup> 的頻率移動」= 每 2<sup>25</sup> = 33,554,432 個週期（約 0.34 秒）動一次。</p>
+
+<h3>做法 A：除頻器當時脈（課堂範本的做法）</h3>
+<pre class="code" data-title="clock_divider">logic [24:0] num;
+always_ff @(posedge clk) num <= num + 1'b1;
+assign clk_div = num[24];          // 每 2^24 週期翻轉 -> 週期 2^25
+
+always_ff @(posedge clk_div) pos <= pos + 1;   // 用 clk_div 當時脈</pre>
+
+<h3>做法 B：單一時脈 + tick 脈衝（推薦）</h3>
+<pre class="code" data-title="tick 產生器">logic [25:0] cnt;                              // 26 bits
+always_ff @(posedge clk) cnt <= cnt + 1'b1;
+
+assign tick24 = (cnt[23:0] == '1);            // 每 2^24 個週期有 1 個週期是 1
+assign tick25 = (cnt[24:0] == '1);            // 每 2^25
+assign tick26 = (cnt      == '1);             // 每 2^26
+
+always_ff @(posedge clk)                       // 所有東西都用同一個 clk
+    if (tick25) pos <= pos + 1;               // tick 當作 enable</pre>
+<figure>
+<div class="fig wave" data-wave='{"title":"tick vs divided clock","signals":[{"name":"clk","wave":"p..........."},{"name":"cnt[1:0]","wave":"============","data":["0","1","2","3","0","1","2","3","0","1","2","3"]},{"name":"clk_div","wave":"0.1.0.1.0.1."},{"name":"tick","wave":"0..10..10..1"}]}'></div>
+<figcaption>以 2 bits 為例。<code>clk_div = cnt[1]</code> 是 50% 方波；<code>tick = (cnt == 3)</code> 每 4 個週期只亮 1 個週期，當 enable 用。</figcaption>
+</figure>
+
+<div class="key"><span class="tag">為什麼推薦 tick</span>
+<ul>
+<li>按鈕的 one-pulse 只有 1 個 100 MHz 週期寬。如果你的 FSM 跑在 <code>clk_div</code> 上，那個脈衝<strong>幾乎一定會被漏掉</strong>。全部用同一個 clk 就沒有這問題。</li>
+<li>不同速度的物件（2023 年蛇的 2<sup>24</sup>/2<sup>25</sup>/2<sup>26</sup>）要互相比較位置、判斷碰撞。如果它們在不同時脈領域，判斷會亂掉。</li>
+<li>從同一個計數器取出的 tick 會<strong>自然對齊</strong>：每次 tick26 發生時 tick25、tick24 也同時發生，正好符合 2023 題目的時序範例。</li>
+</ul></div>
+
+<h3>精準時間：timer（不是 2 的次方）</h3>
+<p>要剛好 1 秒（100,000,000 週期）或 0.25 秒，用計數到某個數就歸零的 timer：</p>
+<pre class="code" data-title="timer（Lab 3 範本）">module timer #(parameter integer COUNT = 100_000_000) (
+    input  logic clk, rst, enable,
+    output logic tick
+);
+    logic [31:0] num;
+    always_ff @(posedge clk or posedge rst) begin
+        if (rst)                   num <= '0;
+        else if (!enable)          num <= '0;            // 不在該狀態時歸零
+        else if (num == COUNT - 1) num <= '0;
+        else                       num <= num + 1'b1;
+    end
+    assign tick = enable && (num == COUNT - 1);
+endmodule</pre>
+<div class="tbl"><table>
+<thead><tr><th>時間</th><th>週期數</th><th>計數器寬度</th></tr></thead>
+<tbody class="num">
+<tr><td>1 秒</td><td>100,000,000</td><td>27 bits（2<sup>27</sup> ≈ 1.34 億）</td></tr>
+<tr><td>0.5 秒</td><td>50,000,000</td><td>26 bits</td></tr>
+<tr><td>0.25 秒</td><td>25,000,000</td><td>25 bits</td></tr>
+<tr><td>2<sup>26</sup> 週期</td><td>67,108,864（≈0.67 秒，題目說「約 1 秒」那種）</td><td>26 bits</td></tr>
+<tr><td>2<sup>25</sup> 週期</td><td>33,554,432（≈0.34 秒）</td><td>25 bits</td></tr>
+</tbody></table></div>
+
+<h3>模擬時把時間縮短</h3>
+<p>在模擬器跑 2<sup>25</sup> 個週期要很久。把計數寬度寫成參數，testbench 裡覆寫成小數字：</p>
+<pre class="code" data-title="參數化速度">module exam1_C #(parameter int T0 = 24) ( ... );
+    logic [T0+1:0] cnt;
+    assign tick0 = (cnt[T0-1:0] == '1);
+...
+// testbench：exam1_C #(.T0(4)) dut (.*);   -> 每 16 個週期就動一次</pre>
+</section>
+
+<!-- ============================================================ -->
+<section class="tabpanel" id="button" data-label="按鈕：去彈跳與單脈衝">
+<h2>按鈕：debounce + one-pulse</h2>
+<p>按一次按鈕，人手按住大約 0.1–0.3 秒 = 一千萬個週期以上。如果直接用 <code>if (btn) mode &lt;= mode + 1</code>，按一下 mode 就加了一千萬次。而且機械按鈕剛按下時會彈跳（0/1 快速抖動幾毫秒）。</p>
+<figure>
+<div class="fig wave" data-wave='{"title":"debounce and one pulse","signals":[{"name":"clk(慢)","wave":"p.........."},{"name":"btn","wave":"0.1010.1..."},{"name":"debounced","wave":"0......1..."},{"name":"delay","wave":"0.......1.."},{"name":"one_pulse","wave":"0......10.."}]}'></div>
+<figcaption>debounced：連續好幾次取樣都是 1 才算按下。one_pulse = debounced &amp; ~delay（這拍是 1、上一拍是 0），剛好 1 個週期。</figcaption>
+</figure>
+
+<div class="split">
+<div>
+<pre class="code" data-title="debounce（課堂版）">module debounce #(parameter n = 4) (
+    input  logic clk, pb,
+    output logic pb_debounced
+);
+    logic [n-1:0] shift_reg;
+    always_ff @(posedge clk)
+        shift_reg <= {shift_reg[n-2:0], pb};
+    assign pb_debounced = &shift_reg;   // 全 1
+endmodule</pre>
+</div>
+<div>
+<pre class="code" data-title="one_pulse（課堂版）">module one_pulse (
+    input  logic clk, pb_in,
+    output logic pb_out
+);
+    logic pb_in_delay;
+    always_ff @(posedge clk) begin
+        pb_out      <= pb_in & ~pb_in_delay;
+        pb_in_delay <= pb_in;
+    end
+endmodule</pre>
+</div>
+</div>
+<p>課堂範本的 debounce 如果直接接 100 MHz，4 個 flip-flop 只取樣了 40 ns，根本濾不掉彈跳。範本的做法是把 debounce 接到除頻後的時脈（例如 2<sup>16</sup>），但這樣 one-pulse 也只能在慢時脈下用。</p>
+<p>下面這個版本把兩者合在一起、全部跑在 100 MHz：每 2<sup>16</sup> 週期取樣一次按鈕（約 0.65 ms），連續 4 次是 1 才算穩定，然後輸出一個 100 MHz 週期寬的脈衝。本站所有 C 題解答都用它。</p>
+<pre class="code" data-lang="sv" data-title="helpers.sv（btn_pulse + seven_seg）" data-src="code/common/helpers.sv">// ===================================================================
+//  Reusable helper modules for FPGA problems (Basys3, 100 MHz clock)
+//  Paste these at the bottom of your exam file: the exam requires
+//  ONE file that contains every module you use.
+// ===================================================================
+
+// -------------------------------------------------------------------
+// btn_pulse: debounce + one-pulse in ONE clock domain (100 MHz).
+//   * The button is sampled once every 2^DB clock cycles
+//     (DB = 16 -&gt; every 0.65 ms), shifted into a 4-bit register.
+//   * &quot;stable&quot; = the last 4 samples were all 1.
+//   * pulse   = rising edge of &quot;stable&quot;, exactly ONE 100 MHz cycle wide.
+// -------------------------------------------------------------------
+module btn_pulse #(parameter int DB = 16) (
+    input  logic clk,
+    input  logic rst,
+    input  logic btn,
+    output logic pulse
+);
+    logic [DB-1:0] div;
+    logic [3:0]    samples;
+    logic          stable, stable_d;
+
+    assign stable = &amp;samples;
+
+    always_ff @(posedge clk) begin
+        if (rst) begin
+            div &lt;= &#x27;0; samples &lt;= &#x27;0; stable_d &lt;= 1&#x27;b0;
+        end else begin
+            div &lt;= div + 1&#x27;b1;
+            if (div == &#x27;0) samples &lt;= {samples[2:0], btn};
+            stable_d &lt;= stable;
+        end
+    end
+
+    assign pulse = stable &amp; ~stable_d;
+endmodule
+
+// -------------------------------------------------------------------
+// seven_seg: 4-digit multiplexed display driver.
+//   * c3 is the LEFTMOST digit, c0 the RIGHTMOST.
+//   * each cN is a 5-bit character code (see the localparams below).
+//   * DIGIT and DISPLAY are ACTIVE-LOW on Basys3.
+//   * DISPLAY = {g, f, e, d, c, b, a}
+// -------------------------------------------------------------------
+module seven_seg (
+    input  logic       clk,
+    input  logic [4:0] c3, c2, c1, c0,
+    output logic [3:0] DIGIT,
+    output logic [6:0] DISPLAY
+);
+    // character codes: 0..9 are the digits themselves
+    localparam logic [4:0] CH_A = 5&#x27;d10, CH_E = 5&#x27;d14, CH_P = 5&#x27;d16,
+                           CH_R = 5&#x27;d17, CH_U = 5&#x27;d18, CH_DASH = 5&#x27;d19,
+                           CH_BLANK = 5&#x27;d31;
+    // &#x27;S&#x27; looks like 5 and &#x27;I&#x27; looks like 1 -&gt; just use 5 and 1
+
+    logic [16:0] refresh = &#x27;0;     // 2^15 cycles per digit (~0.33 ms); &#x27;= 0&#x27; sets the FPGA power-up value
+    logic [4:0]  ch;
+
+    always_ff @(posedge clk) refresh &lt;= refresh + 1&#x27;b1;
+
+    always_comb begin
+        case (refresh[16:15])
+            2&#x27;d0: begin DIGIT = 4&#x27;b1110; ch = c0; end
+            2&#x27;d1: begin DIGIT = 4&#x27;b1101; ch = c1; end
+            2&#x27;d2: begin DIGIT = 4&#x27;b1011; ch = c2; end
+            default: begin DIGIT = 4&#x27;b0111; ch = c3; end
+        endcase
+    end
+
+    always_comb begin
+        case (ch)
+            5&#x27;d0: DISPLAY = 7&#x27;b1000000;
+            5&#x27;d1: DISPLAY = 7&#x27;b1111001;
+            5&#x27;d2: DISPLAY = 7&#x27;b0100100;
+            5&#x27;d3: DISPLAY = 7&#x27;b0110000;
+            5&#x27;d4: DISPLAY = 7&#x27;b0011001;
+            5&#x27;d5: DISPLAY = 7&#x27;b0010010;
+            5&#x27;d6: DISPLAY = 7&#x27;b0000010;
+            5&#x27;d7: DISPLAY = 7&#x27;b1111000;
+            5&#x27;d8: DISPLAY = 7&#x27;b0000000;
+            5&#x27;d9: DISPLAY = 7&#x27;b0010000;
+            CH_A: DISPLAY = 7&#x27;b0001000;
+            CH_E: DISPLAY = 7&#x27;b0000110;
+            CH_P: DISPLAY = 7&#x27;b0001100;
+            CH_R: DISPLAY = 7&#x27;b0101111;   // lowercase r
+            CH_U: DISPLAY = 7&#x27;b1000001;
+            CH_DASH: DISPLAY = 7&#x27;b0111111;
+            default: DISPLAY = 7&#x27;b1111111; // blank
+        endcase
+    end
+endmodule
+</pre>
+
+<div class="note"><span class="tag">reset 按鈕需要 debounce 嗎？</span>不太需要。reset 只要「有被按到」就好，多 reset 幾次沒差。考題範本也是直接用 <code>rst</code>。</div>
+</section>
+
+<!-- ============================================================ -->
+<section class="tabpanel" id="lfsr" data-label="LFSR 亂數">
+<h2>LFSR：用移位暫存器做偽亂數</h2>
+<p>Linear Feedback Shift Register：每一拍往左移一位，最右邊補上「某幾個 bit 的 XOR」。選對 tap 的話，n bits 會跑遍 2<sup>n</sup>−1 種非零狀態再重複。Lab 4 practice 和 Lab 4 advanced（蛇的食物位置）都用到。</p>
+<figure>
+<div class="fig">
+<svg viewBox="0 0 560 170" width="560" height="170" role="img" aria-label="4-bit LFSR">
+  <g class="d-stroke" fill="none" stroke-width="1.6">
+    <rect x="60" y="80" width="80" height="50" class="d-fill"/>
+    <rect x="180" y="80" width="80" height="50" class="d-fill"/>
+    <rect x="300" y="80" width="80" height="50" class="d-fill"/>
+    <rect x="420" y="80" width="80" height="50" class="d-fill"/>
+    <line x1="140" y1="105" x2="180" y2="105"/><line x1="260" y1="105" x2="300" y2="105"/><line x1="380" y1="105" x2="420" y2="105"/>
+    <path d="M500 105 H530 V30 H290"/>
+    <path d="M160 105 V55 H262"/>
+    <path d="M250 22 q20 18 0 36 q35 0 50 -18 q-15 -18 -50 -18 z" class="d-fill"/>
+    <path d="M244 22 q20 18 0 36"/>
+    <path d="M300 40 H40 V105 H60"/>
+  </g>
+  <circle cx="160" cy="105" r="3" class="d-accent-f"/>
+  <g font-size="13">
+    <text x="78" y="110" class="d-text">lfsr[0]</text><text x="198" y="110" class="d-text">lfsr[1]</text>
+    <text x="318" y="110" class="d-text">lfsr[2]</text><text x="438" y="110" class="d-text">lfsr[3]</text>
+    <text x="262" y="74" class="d-muted" font-size="12">XOR</text>
+    <text x="60" y="155" class="d-muted" font-size="12">reset = 4'b0001，不能是 0000（會卡住）</text>
+  </g>
+</svg>
+</div>
+<figcaption>Lab 4 practice 的 4-bit LFSR：新的 lfsr[0] = lfsr[3] ⊕ lfsr[0]，其餘往左移。</figcaption>
+</figure>
+<pre class="code" data-title="4-bit LFSR">logic [3:0] lfsr;
+always_ff @(posedge clk or posedge rst) begin
+    if (rst)       lfsr <= 4'b0001;
+    else if (adv)  lfsr <= {lfsr[2:0], lfsr[3] ^ lfsr[0]};
+end</pre>
+<div class="tbl"><table>
+<thead><tr><th>步驟</th><th>lfsr</th><th>lfsr[1:0]（方向）</th></tr></thead>
+<tbody class="num">
+<tr><td>0</td><td><code>0001</code></td><td>01 Right</td></tr>
+<tr><td>1</td><td><code>0011</code></td><td>11 Up</td></tr>
+<tr><td>2</td><td><code>0111</code></td><td>11 Up</td></tr>
+<tr><td>3</td><td><code>1111</code></td><td>11 Up</td></tr>
+<tr><td>4</td><td><code>1110</code></td><td>10 Down</td></tr>
+<tr><td>5</td><td><code>1101</code></td><td>01 Right</td></tr>
+<tr><td>…</td><td colspan="2">共 15 個狀態後回到 0001</td></tr>
+</tbody></table></div>
+<p>想要「每一拍都換」的亂數（例如在玩家按鍵的瞬間取值），就讓 LFSR 每個 clk 都跑（free-running），按鍵時讀取它的值。</p>
+</section>
+
+<!-- ============================================================ -->
+<section class="tabpanel" id="memory" data-label="記憶體（Lab 5）">
+<h2>記憶體：陣列 + 讀寫埠</h2>
+<p>Lab 5 是這次考試新加的範圍。<code>logic [3:0] memory [0:7];</code> 就是 8 個 4-bit 的格子。重點在讀寫的<strong>時序</strong>與<strong>規則</strong>。</p>
+<figure>
+<div class="fig">
+<svg viewBox="0 0 620 230" width="620" height="230" role="img" aria-label="1R1W RAM with write-first bypass">
+  <g class="d-stroke" fill="none" stroke-width="1.5">
+    <rect x="220" y="30" width="150" height="170" class="d-fill"/>
+    <line x1="220" y1="51" x2="370" y2="51"/><line x1="220" y1="72" x2="370" y2="72"/><line x1="220" y1="93" x2="370" y2="93"/>
+    <line x1="220" y1="114" x2="370" y2="114"/><line x1="220" y1="135" x2="370" y2="135"/><line x1="220" y1="156" x2="370" y2="156"/><line x1="220" y1="177" x2="370" y2="177"/>
+    <rect x="70" y="40" width="90" height="34" class="d-fill"/>
+    <rect x="70" y="150" width="90" height="34" class="d-fill"/>
+    <path d="M440 60 L470 75 L470 155 L440 170 Z" class="d-fill"/>
+    <rect x="520" y="95" width="60" height="40" class="d-fill"/>
+    <path d="M10 57 H70"/><path d="M160 57 H220"/>
+    <path d="M10 167 H70"/><path d="M160 167 H220"/>
+    <path d="M370 140 H440"/>
+    <path d="M30 20 H400 V85 H440"/>
+    <path d="M470 115 H520"/><path d="M580 115 H605"/>
+    <path d="M455 200 V163"/>
+  </g>
+  <g font-size="12">
+    <text x="12" y="50" class="d-text">w_addr</text><text x="12" y="160" class="d-text">r_addr</text>
+    <text x="80" y="62" class="d-text">XOR fold</text><text x="80" y="172" class="d-text">XOR fold</text>
+    <text x="232" y="45" class="d-text">mem[0]  v0</text><text x="232" y="66" class="d-text">mem[1]  v1</text><text x="232" y="87" class="d-text">mem[2]  v2</text>
+    <text x="250" y="129" class="d-muted">…</text><text x="232" y="193" class="d-text">mem[7]  v7</text>
+    <text x="36" y="15" class="d-text">din</text>
+    <text x="380" y="135" class="d-muted">讀出</text>
+    <text x="410" y="215" class="d-muted">we &amp;&amp; wi == ri</text>
+    <text x="528" y="120" class="d-text">dout</text><text x="530" y="150" class="d-muted">(FF)</text>
+  </g>
+</svg>
+</div>
+<figcaption>位址先經過對應（XOR folding）變成 0–7。讀出前有一個多工器：同一拍寫入同一格時，直接把 din 送出去（write-first）。dout 是暫存器輸出。</figcaption>
+</figure>
+
+<h3>四個規則</h3>
+<ol class="steps">
+<li><strong>位址對應</strong>：<code>idx = addr[2:0] ^ addr[6:4] ^ addr[3:1]</code>。比較讀寫是否同一格要比對應後的 index，不是原始位址（5A 和 03 都對到 index 2）。</li>
+<li><strong>valid bit</strong>：每格一個 bit，第一次寫入才設 1。<code>cnt_valid</code> 只在「寫入原本 invalid 的格子」時 +1。</li>
+<li><strong>同步讀</strong>：<code>re = 1</code> 時，下一個上升緣 <code>dout</code> 變成該格內容（invalid 則 0）；<code>re = 0</code> 則 <code>dout</code> 變 0。</li>
+<li><strong>write-first</strong>：同一拍又讀又寫同一格，<code>dout</code> 要給<strong>新寫入的值</strong>。因為非阻塞指定時 <code>memory[ri]</code> 還是舊值，所以要自己加旁路。</li>
+</ol>
+<figure>
+<div class="fig wave" data-wave='{"title":"lab5 waveform","signals":[{"name":"clk","wave":"p........"},{"name":"we","wave":"01.0..10."},{"name":"w_addr","wave":"x==x..=x.","data":["5A","01","5A"]},{"name":"din","wave":"x==x..=x.","data":["4","5","7"]},{"name":"re","wave":"0.1.0.10."},{"name":"r_addr","wave":"x.=x..=x.","data":["5A","03"]},{"name":"dout","wave":"0..=0..=0","data":["4","7"]},{"name":"cnt_valid","wave":"=.==.....","data":["0","1","2"]}],"hscale":1.15}'></div>
+<figcaption>第 6 拍：寫 5A、讀 03，兩者都對到 index 2 → write-first，下一拍 dout = 7（新值）。</figcaption>
+</figure>
+<pre class="code" data-lang="sv" data-title="lab5_practice.sv（通過助教 13 組測試）" data-src="code/labs/lab5_practice.sv">// Lab 5 Practice — 8 x 4-bit RAM, 1 read + 1 write port, write-first, valid bits
+`timescale 1ns/1ps
+module lab5_practice (
+    input  logic       clk,
+    input  logic       rst,        // synchronous
+    input  logic       we,
+    input  logic [6:0] w_addr,
+    input  logic [3:0] din,
+    input  logic       re,
+    input  logic [6:0] r_addr,
+    output logic [3:0] dout,
+    output logic [3:0] cnt_valid
+);
+    logic [3:0] memory [0:7];
+    logic [7:0] valid;
+    logic [2:0] wi, ri;            // mapped 3-bit indices
+
+    // XOR folding: 7-bit address -&gt; 3-bit index
+    assign wi = w_addr[2:0] ^ w_addr[6:4] ^ w_addr[3:1];
+    assign ri = r_addr[2:0] ^ r_addr[6:4] ^ r_addr[3:1];
+
+    always_ff @(posedge clk) begin
+        if (rst) begin
+            for (int k = 0; k &lt; 8; k++) memory[k] &lt;= 4&#x27;d0;
+            valid     &lt;= 8&#x27;d0;
+            cnt_valid &lt;= 4&#x27;d0;
+            dout      &lt;= 4&#x27;d0;
+        end else begin
+            // ---- write port ----
+            if (we) begin
+                memory[wi] &lt;= din;
+                valid[wi]  &lt;= 1&#x27;b1;
+                if (!valid[wi]) cnt_valid &lt;= cnt_valid + 4&#x27;d1;   // first write only
+            end
+            // ---- read port (registered) ----
+            if (!re)                    dout &lt;= 4&#x27;d0;
+            else if (we &amp;&amp; wi == ri)    dout &lt;= din;             // write-first bypass
+            else if (valid[ri])         dout &lt;= memory[ri];
+            else                        dout &lt;= 4&#x27;d0;
+        end
+    end
+endmodule
+</pre>
+
+<h3>指標（pointer）：用記憶體做 FIFO / Stack</h3>
+<p>Lab 4 advanced 的蛇身體用 FIFO 存：head 指標指向最新的節點、tail 指標指向最舊的。深度取 2 的次方（32），指標用 5 bits 就會自然繞回 0。</p>
+<pre class="code" data-title="FIFO 指標">logic [4:0] body [0:31];
+logic [4:0] head, tail;               // 5-bit 指標：31 + 1 = 0，自動環狀
+
+always_ff @(posedge clk) begin
+    if (step) begin
+        head       <= head + 1'b1;    // push 新頭
+        body[head + 1'b1] <= new_node;
+        if (!ate)  tail <= tail + 1'b1;   // 沒吃到才 pop 尾巴（吃到就變長）
+    end
+end
+// 長度 = head - tail + 1（5-bit 減法自動處理繞回）</pre>
+<p>模擬考 B 題就是一個用記憶體做的 stack（LIFO），練習這種「指標 + 陣列 + 邊界檢查」。</p>
+</section>
+
+<!-- ============================================================ -->
+<section class="tabpanel" id="math" data-label="數學技巧">
+<h2>不用 <code>/</code> 和 <code>%</code> 的技巧</h2>
+<p>B 題常禁止除法和取餘數（用了只拿一半分數），因為它們合成出來的電路很大。2 的次方都可以用位元操作取代。</p>
+<div class="tbl"><table>
+<thead><tr><th>想算</th><th>寫成</th><th>說明</th></tr></thead>
+<tbody>
+<tr><td><code>x % 8</code></td><td><code>x[2:0]</code></td><td>對 2<sup>k</sup> 取餘數 = 取最低 k 位</td></tr>
+<tr><td><code>x % 4 == 0</code></td><td><code>x[1:0] == 2'b00</code></td><td></td></tr>
+<tr><td><code>S % 8 == i % 8</code></td><td><code>S[2:0] == i[2:0]</code></td><td>2021、2022 B 題</td></tr>
+<tr><td><code>x</code> 是奇數</td><td><code>x[0]</code></td><td></td></tr>
+<tr><td><code>x / 4</code>（無號）</td><td><code>x &gt;&gt; 2</code></td><td>有號用 <code>&gt;&gt;&gt;</code>，注意負數是向下取整</td></tr>
+<tr><td><code>x * 3</code></td><td><code>(x &lt;&lt; 1) + x</code></td><td><code>*</code> 其實沒被禁止，但這樣寫很直覺</td></tr>
+<tr><td><code>x * 6</code></td><td><code>(x &lt;&lt; 2) + (x &lt;&lt; 1)</code></td><td>2022 B 題</td></tr>
+<tr><td><code>(S/2) * 3</code></td><td><code>(S &gt;&gt; 1) + ((S &gt;&gt; 1) &lt;&lt; 1)</code></td><td>2022 B 題（S 為偶數）</td></tr>
+<tr><td><code>c &gt;&gt; (i % 4)</code></td><td><code>c &gt;&gt; i[1:0]</code></td><td>移位量可以是變數（合成成 barrel shifter）</td></tr>
+</tbody></table></div>
+
+<h3>顯示兩位數：十位與個位</h3>
+<p>七段顯示器一次顯示一個 0–9 的數字，所以分數 13 要拆成 1 和 3。數值範圍小時，用比較最簡單：</p>
+<pre class="code" data-title="拆十位個位（0~19）">assign tens = (score >= 10) ? 1 : 0;
+assign ones = (score >= 10) ? score - 10 : score;</pre>
+<pre class="code" data-title="0~99（常數除法可以合成，考試沒禁止時可用）">assign tens = score / 10;      // 除以常數，Vivado 會合成成乘法 + 移位
+assign ones = score % 10;</pre>
+<p>另一個做法是直接用兩個 BCD 計數器（個位到 9 進位到十位），計時器很常這樣做：</p>
+<pre class="code" data-title="BCD 計數器">always_ff @(posedge clk) begin
+    if (rst) begin ones <= 0; tens <= 0; end
+    else if (sec_tick) begin
+        if (ones == 4'd9) begin ones <= 0; tens <= tens + 1; end
+        else               ones <= ones + 1;
+    end
+end</pre>
+
+<h3>LED 位置運算</h3>
+<pre class="code" data-title="位置與遮罩">logic [3:0]  pos;                      // 0~15
+logic [15:0] mask;
+assign mask = 16'b1 << pos;            // one-hot：只有 pos 那顆亮
+
+// 環狀移動（LD0 再往右 = LD15）：4-bit 自動繞回
+pos <= pos - 4'd1;                      // 0 - 1 = 15 ✔
+
+// 3 格長的物體，右端在 r：
+assign body = 16'b111 << r;
+
+// 環狀旋轉（物體跨過邊界）
+assign rot = (base << k) | (base >> (16 - k));
+
+// 碰撞：兩個遮罩有重疊
+assign hit = |(mask_a & mask_b);
+// 吃到東西
+assign eat = |(apple & mask_snake);
+apple <= apple & ~mask_snake;           // 把吃掉的清掉</pre>
+
+<h3>Hamming 碼（2023 B）</h3>
+<p>12 bits 裡位置 1、2、4、8 是檢查位元。每個檢查位元負責「位置編號的二進位在那一位是 1」的所有 bit。把四個檢查結果組成 <code>{c4,c3,c2,c1}</code>，<strong>數值剛好等於出錯的位置</strong>。</p>
+<div class="tbl"><table>
+<thead><tr><th>位置</th><th class="num">12</th><th class="num">11</th><th class="num">10</th><th class="num">9</th><th class="num">8</th><th class="num">7</th><th class="num">6</th><th class="num">5</th><th class="num">4</th><th class="num">3</th><th class="num">2</th><th class="num">1</th></tr></thead>
+<tbody>
+<tr><td>內容</td><td>d8</td><td>d7</td><td>d6</td><td>d5</td><td><strong>r4</strong></td><td>d4</td><td>d3</td><td>d2</td><td><strong>r3</strong></td><td>d1</td><td><strong>r2</strong></td><td><strong>r1</strong></td></tr>
+<tr><td>c1（bit0）</td><td></td><td>●</td><td></td><td>●</td><td></td><td>●</td><td></td><td>●</td><td></td><td>●</td><td></td><td>●</td></tr>
+<tr><td>c2（bit1）</td><td></td><td>●</td><td>●</td><td></td><td></td><td>●</td><td>●</td><td></td><td></td><td>●</td><td>●</td><td></td></tr>
+<tr><td>c3（bit2）</td><td>●</td><td></td><td></td><td></td><td></td><td>●</td><td>●</td><td>●</td><td>●</td><td></td><td></td><td></td></tr>
+<tr><td>c4（bit3）</td><td>●</td><td>●</td><td>●</td><td>●</td><td>●</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+</tbody></table></div>
+<p>完整解答在 <a href="exams.html#y2023">歷屆考題 → 2023 → B</a>。</p>
+</section>
+</div>
+
+</main>
+<footer>
+  自學整理用，題目內容為重點摘要。所有解答程式碼都在 Vivado 2022.1 xsim 模擬或合成驗證過；FPGA 題沒有上板實測，行為以題目與助教 demo 為準。
+  原始碼：<a href="https://github.com/weifish0/hdl-midterm-guide">GitHub</a>
+</footer>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js"></script>
+<script src="assets/app.js"></script>
+</body>
+</html>

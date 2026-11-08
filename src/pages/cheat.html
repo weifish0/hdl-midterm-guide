@@ -1,0 +1,166 @@
+<!--meta {"title": "考場速查 · HDL Exam 1 Prep", "nav": "cheat", "desc": "考前一頁速查：A/B/C 題骨架、有號數規則、七段編碼、腳位與檢查清單"}-->
+<div class="page-head">
+  <span class="eyebrow">Part 8 · 考前一天</span>
+  <h1>考場速查</h1>
+  <p class="lede">考前只看這頁。每段都是可以直接複製的骨架。</p>
+</div>
+
+<div class="tabs">
+<div class="tablist"></div>
+
+<section class="tabpanel" id="cs-ab" data-label="A / B 骨架">
+<h2>A 題骨架</h2>
+<pre class="code" data-title="exam1_A 骨架">// 學號 姓名
+`timescale 1ns/1ps
+module exam1_A (
+    input  logic               clk, rst,
+    input  logic signed [7:0]  A, B,
+    input  logic        [1:0]  ctrl,
+    output logic signed [15:0] out
+);
+    logic signed [15:0] result;
+    always_comb begin
+        case (ctrl)
+            2'b00:   result = A * B;
+            2'b01:   result = {A & B, A ^ B};
+            2'b11:   result = (A + B) <<< 2;
+            default: result = (A < B) ? -16'sd1 : 16'sd1;
+        endcase
+    end
+    always_ff @(posedge clk) begin
+        if (rst) out <= '0;
+        else     out <= result;
+    end
+endmodule</pre>
+
+<h2>B 題骨架（規則計數器）</h2>
+<pre class="code" data-title="exam1_B 骨架">module exam1_B (input logic clk, rst, output logic [15:0] out);
+    localparam logic [16:0] MAX = 17'd65176;      // 題目給的上限
+    logic        up;
+    logic [15:0] i, prev;
+    logic [16:0] nxt;                 // 多 1 bit 看溢位 / 負數
+
+    always_comb begin
+        if (up) nxt = /* 上數規則 */ out + i;
+        else    nxt = (out < i) ? '0 : out - i;   // 先比較，避免無號數變超大
+    end
+
+    always_ff @(posedge clk) begin
+        if (rst) begin out <= '0; prev <= '0; i <= 16'd1; up <= 1'b1; end
+        else begin
+            prev <= out;
+            out  <= nxt[15:0];
+            if (up && nxt >= MAX)      begin up <= 1'b0; i <= 16'd1; end
+            else if (!up && nxt == 0)  begin up <= 1'b1; i <= 16'd1; end
+            else                        i <= i + 16'd1;
+        end
+    end
+endmodule</pre>
+</section>
+
+<section class="tabpanel" id="cs-c" data-label="C 骨架">
+<h2>C 題骨架</h2>
+<pre class="code" data-title="exam1_C 骨架">module exam1_C (
+    input  logic clk, rst, en, set, up, down,
+    input  logic [15:0] sw,
+    output logic [3:0]  DIGIT,
+    output logic [6:0]  DISPLAY,
+    output logic [15:0] led
+);
+    // 1) 按鈕 -> 1 週期脈衝
+    logic en_p, set_p, up_p, down_p;
+    btn_pulse u0 (.clk, .rst, .btn(en),  .pulse(en_p));
+    btn_pulse u1 (.clk, .rst, .btn(set), .pulse(set_p));
+    btn_pulse u2 (.clk, .rst, .btn(up),  .pulse(up_p));
+    btn_pulse u3 (.clk, .rst, .btn(down),.pulse(down_p));
+
+    // 2) 狀態
+    typedef enum logic [1:0] {S_RESET, S_START, S_PAUSE, S_FINISH} state_t;
+    state_t state;
+
+    // 3) tick：同一個計數器
+    logic [25:0] cnt;
+    logic t24, t25, t26;
+    always_ff @(posedge clk) cnt <= rst ? '0 : cnt + 1'b1;
+    assign t24 = (cnt[23:0] == '1);
+    assign t25 = (cnt[24:0] == '1);
+    assign t26 = (cnt == '1);
+
+    // 4) 資料暫存器 + 狀態轉移：一個 always_ff
+    logic [3:0] pos;  logic [3:0] score;
+    always_ff @(posedge clk) begin
+        if (rst) begin
+            state <= S_RESET; pos <= 4'd15; score <= '0;
+        end else case (state)
+            S_RESET: if (en_p) state <= S_START;
+            S_START: begin
+                if (en_p) state <= S_PAUSE;
+                if (t25)  pos <= pos - 4'd1;
+            end
+            S_PAUSE: if (en_p) state <= S_START;
+            default: ;
+        endcase
+    end
+
+    // 5) 輸出
+    assign led = 16'b1 << pos;
+    seven_seg u_seg (.clk, .c3(5'd0), .c2(5'd0), .c1(5'd0), .c0({1'b0, score}), .DIGIT, .DISPLAY);
+endmodule
+// 6) 貼上 btn_pulse 與 seven_seg</pre>
+<!--#code common/helpers.sv | helpers.sv（貼在檔案最後）-->
+</section>
+
+<section class="tabpanel" id="cs-rules" data-label="規則速記">
+<h2>一定要記得的規則</h2>
+<div class="grid">
+<div class="card"><h4>有號數</h4><p>整個式子都 signed 才做有號運算。常數用 <code>16'sd3</code>；part-select 和串接是無號；需要時 <code>$signed()</code>。右移負數用 <code>&gt;&gt;&gt;</code>。</p></div>
+<div class="card"><h4>寬度</h4><p>運算前先擴到整個式子最寬的寬度。加法多 1 bit、乘法寬度相加。寬給窄直接砍高位。</p></div>
+<div class="card"><h4>always</h4><p><code>always_comb</code> 用 <code>=</code>，先給預設值、case 加 default。<code>always_ff</code> 用 <code>&lt;=</code>。一個訊號只在一個 always 裡指定。</p></div>
+<div class="card"><h4>reset</h4><p>同步：<code>@(posedge clk)</code>；非同步：<code>@(posedge clk or posedge rst)</code>。考試 A/B/C 都寫同步。</p></div>
+<div class="card"><h4>時間</h4><p>2<sup>24</sup> ≈ 0.17 s、2<sup>25</sup> ≈ 0.34 s、2<sup>26</sup> ≈ 0.67 s、2<sup>27</sup> ≈ 1.34 s。剛好 1 秒 = 100,000,000 週期（27 bits）。</p></div>
+<div class="card"><h4>不用 / %</h4><p><code>x % 2^k = x[k-1:0]</code>、<code>x / 2^k = x &gt;&gt; k</code>、<code>x*3 = (x&lt;&lt;1)+x</code>、奇偶看 <code>x[0]</code>。</p></div>
+<div class="card"><h4>LED 方向</h4><p>led[15] 在最左。往左 = index + 1。4-bit 位置加減自動環繞。</p></div>
+<div class="card"><h4>七段</h4><p>DIGIT、DISPLAY 都是 0 = 亮。DIGIT 1110 = 最右位。DISPLAY = {g,f,e,d,c,b,a}。</p></div>
+</div>
+
+<h2>七段編碼表（{g,f,e,d,c,b,a}，0 = 亮）</h2>
+<div class="tbl"><table>
+<thead><tr><th>字</th><th>DISPLAY</th><th>字</th><th>DISPLAY</th><th>字</th><th>DISPLAY</th></tr></thead>
+<tbody class="num">
+<tr><td>0</td><td><code>1000000</code></td><td>6</td><td><code>0000010</code></td><td>E</td><td><code>0000110</code></td></tr>
+<tr><td>1 / I</td><td><code>1111001</code></td><td>7</td><td><code>1111000</code></td><td>P</td><td><code>0001100</code></td></tr>
+<tr><td>2</td><td><code>0100100</code></td><td>8</td><td><code>0000000</code></td><td>r</td><td><code>0101111</code></td></tr>
+<tr><td>3</td><td><code>0110000</code></td><td>9</td><td><code>0010000</code></td><td>U</td><td><code>1000001</code></td></tr>
+<tr><td>4</td><td><code>0011001</code></td><td>A</td><td><code>0001000</code></td><td>-</td><td><code>0111111</code></td></tr>
+<tr><td>5 / S</td><td><code>0010010</code></td><td>b</td><td><code>0000011</code></td><td>空白</td><td><code>1111111</code></td></tr>
+</tbody></table></div>
+
+<h2>按鈕腳位（2022、2023 範本）</h2>
+<div class="tbl"><table><thead><tr><th>訊號</th><th>按鈕</th><th>腳位</th></tr></thead><tbody>
+<tr><td>rst</td><td>BTNC</td><td>U18</td></tr><tr><td>en</td><td>BTNR</td><td>T17</td></tr>
+<tr><td>set</td><td>BTNL</td><td>W19</td></tr><tr><td>up</td><td>BTNU</td><td>T18</td></tr><tr><td>down</td><td>BTND</td><td>U17</td></tr>
+</tbody></table></div>
+</section>
+
+<section class="tabpanel" id="cs-check" data-label="交卷檢查">
+<h2>交卷前</h2>
+<ul class="check">
+  <li><input type="checkbox" id="k1"><label for="k1">第一行 <code>// 學號 姓名</code>（三個檔案都要）</label></li>
+  <li><input type="checkbox" id="k2"><label for="k2">模組名稱、port 名稱、寬度都沒改</label></li>
+  <li><input type="checkbox" id="k3"><label for="k3">A/B：PASS 訊息出現；模擬時間夠長</label></li>
+  <li><input type="checkbox" id="k4"><label for="k4">A/B：輸出晚一拍、同步 reset 輸出 0</label></li>
+  <li><input type="checkbox" id="k5"><label for="k5">B：沒有 lookup table、沒有違規的 / 或 %</label></li>
+  <li><input type="checkbox" id="k6"><label for="k6">C：Generate Bitstream 成功、沒改 XDC</label></li>
+  <li><input type="checkbox" id="k7"><label for="k7">C：子模組都在同一檔案、沒有重複定義</label></li>
+  <li><input type="checkbox" id="k8"><label for="k8">OJ 顯示上傳成功</label></li>
+</ul>
+<button type="button" class="theme-btn" id="clear-checks">清除勾選</button>
+<script>
+document.getElementById("clear-checks").addEventListener("click", function () {
+  document.querySelectorAll(".check input").forEach(function (c) {
+    c.checked = false; try { localStorage.removeItem("hdl-chk-" + c.id); } catch (e) {}
+  });
+});
+</script>
+</section>
+</div>

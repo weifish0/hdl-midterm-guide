@@ -1,0 +1,475 @@
+<!--meta {"title": "SystemVerilog 語法 · HDL Exam 1 Prep", "nav": "sv", "desc": "考試需要的 SystemVerilog：logic、位元寬度、有號數、always_comb、always_ff、阻塞與非阻塞、模組實例化"}-->
+<div class="page-head">
+  <span class="eyebrow">Part 1 · 語法</span>
+  <h1>SystemVerilog 語法</h1>
+  <p class="lede">寫硬體不是寫程式。每一行描述的是「一塊電路」，所有電路同時在運作。先建立這個觀念，下面的規則就都說得通。</p>
+</div>
+
+<div class="tabs">
+<div class="tablist"></div>
+
+<!-- ============================================================ -->
+<section class="tabpanel" id="sv-module" data-label="模組與型別">
+<h2>模組（module）：一顆晶片</h2>
+<p>一個 <code>module</code> 就像一顆有接腳的 IC。<code>input</code>／<code>output</code> 是接腳，裡面宣告的訊號是內部的線或暫存器。</p>
+<pre class="code" data-title="最小的模組">`timescale 1ns/1ps            // 模擬時間單位 / 精度（只影響模擬）
+module adder8 (
+    input  logic [7:0] a,      // [7:0] = 8 bits, bit 7 是 MSB
+    input  logic [7:0] b,
+    output logic [8:0] sum     // 9 bits 才裝得下進位
+);
+    assign sum = a + b;        // 連續指定：一條永遠成立的「接線」
+endmodule</pre>
+
+<h3><code>logic</code>：SystemVerilog 只需要這一種型別</h3>
+<p>Verilog 要分 <code>wire</code>（被 <code>assign</code> 驅動）和 <code>reg</code>（在 <code>always</code> 裡被指定）。SystemVerilog 的 <code>logic</code> 兩種都能用，工具會依你怎麼驅動它決定變成線還是 flip-flop。</p>
+<div class="warn"><span class="tag">注意</span><code>reg</code> 不代表一定是暫存器！在 <code>always_comb</code> 裡指定的 <code>logic</code> 合成出來是組合邏輯。真正決定「是不是 flip-flop」的是：<strong>它是不是在時脈邊緣被指定</strong>。</div>
+<p>唯一的限制：一個 <code>logic</code> 只能有<strong>一個驅動來源</strong>（一條 <code>assign</code> 或一個 <code>always</code> 區塊）。兩個 <code>always</code> 都寫同一個訊號會報 multiple driver 錯誤。</p>
+
+<h3>向量、索引、陣列</h3>
+<pre class="code" data-title="向量與陣列">logic [15:0] led;          // 16-bit 向量，led[15] 是最左邊的 LED
+logic        bit0;          // 1 bit
+logic [3:0]  nib;
+
+assign nib  = led[7:4];     // 取一段（part-select）
+assign bit0 = led[0];
+// led[i] 的 i 可以是變數（會合成成多工器）
+
+logic [3:0] memory [0:7];   // 陣列：8 個 entry，每個 4 bits（Lab 5 的 RAM）
+// memory[2]      -> 第 2 個 entry（4 bits）
+// memory[2][3]   -> 第 2 個 entry 的 bit 3</pre>
+
+<h3>常數（literal）怎麼寫</h3>
+<div class="tbl"><table>
+<thead><tr><th>寫法</th><th>意思</th><th>備註</th></tr></thead>
+<tbody>
+<tr><td><code>8'd12</code></td><td>8 bits、十進位 12</td><td>格式：<code>寬度'進位 數值</code></td></tr>
+<tr><td><code>8'b0000_1100</code></td><td>二進位，底線只是分隔</td><td><code>'h</code> 十六進位、<code>'o</code> 八進位</td></tr>
+<tr><td><code>16'sd3</code></td><td><strong>有號</strong> 16-bit 的 3</td><td>有號運算時要用 <code>'s</code>，否則整個式子變無號</td></tr>
+<tr><td><code>-16'sd1</code></td><td>-1（16 bits 全 1）</td><td></td></tr>
+<tr><td><code>'0</code> <code>'1</code></td><td>全部填 0 / 全部填 1，自動對齊寬度</td><td>SV 才有，reset 很好用：<code>out &lt;= '0;</code></td></tr>
+<tr><td><code>12</code></td><td>沒寫寬度 = 32-bit 有號整數</td><td>比較 <code>cnt == 12</code> 沒問題</td></tr>
+<tr><td><code>4'bx</code> <code>1'bz</code></td><td>未知 / 高阻抗</td><td>模擬時看到 X 代表沒初始化或多重驅動</td></tr>
+</tbody></table></div>
+
+<h3>parameter 與 localparam</h3>
+<pre class="code" data-title="參數化">module counter #(parameter int N = 8) (   // 可以從外面覆寫
+    input  logic clk, rst,
+    output logic [N-1:0] q
+);
+    localparam logic [N-1:0] MAX = '1;    // 只在模組內用，不能覆寫
+    always_ff @(posedge clk)
+        if (rst) q <= '0; else q <= q + 1'b1;
+endmodule
+
+counter #(.N(26)) u_cnt (.clk(clk), .rst(rst), .q(cnt26));   // 覆寫成 26 bits</pre>
+
+<h3>typedef enum：狀態機一定要用</h3>
+<pre class="code" data-title="enum">typedef enum logic [1:0] {S_RESET, S_START, S_PAUSE} state_t;   // 編碼 0, 1, 2
+state_t state, next_state;
+
+// 模擬波形上會直接顯示 S_START，而不是 2'b01，很好除錯
+if (state == S_START) ...</pre>
+</section>
+
+<!-- ============================================================ -->
+<section class="tabpanel" id="sv-ops" data-label="運算子與寬度">
+<h2>運算子總表</h2>
+<div class="tbl"><table>
+<thead><tr><th>類別</th><th>運算子</th><th>例子（a = 4'b1100, b = 4'b1010）</th></tr></thead>
+<tbody>
+<tr><td>位元運算</td><td><code>&amp; | ^ ~ ~^</code></td><td><code>a &amp; b = 4'b1000</code>，<code>a ^ b = 4'b0110</code>，<code>~(a|b) = 4'b0001</code>（nor）</td></tr>
+<tr><td>縮減（reduction）</td><td><code>&amp;a |a ^a</code></td><td><code>&amp;a = 0</code>（全 1 才 1）、<code>|a = 1</code>、<code>^a = 0</code>（奇數個 1 才 1，就是 parity）</td></tr>
+<tr><td>邏輯</td><td><code>&amp;&amp; || !</code></td><td>結果 1 bit：<code>(a != 0) &amp;&amp; (b != 0)</code></td></tr>
+<tr><td>算術</td><td><code>+ - * / % **</code></td><td><code>/</code> <code>%</code> 合成成很大的電路，考試常禁用</td></tr>
+<tr><td>比較</td><td><code>== != &lt; &lt;= &gt; &gt;=</code></td><td>有號／無號由運算元決定（見下一頁）</td></tr>
+<tr><td>邏輯移位</td><td><code>&lt;&lt; &gt;&gt;</code></td><td>補 0：<code>a &gt;&gt; 1 = 4'b0110</code></td></tr>
+<tr><td>算術移位</td><td><code>&lt;&lt;&lt; &gt;&gt;&gt;</code></td><td>右移補<strong>符號位</strong>（只有運算元是 signed 才會）</td></tr>
+<tr><td>串接</td><td><code>{a, b}</code></td><td><code>{a, b} = 8'b1100_1010</code></td></tr>
+<tr><td>複製</td><td><code>{n{x}}</code></td><td><code>{4{1'b1}} = 4'b1111</code>、<code>{{8{x[7]}}, x}</code> 手動符號延伸</td></tr>
+<tr><td>條件</td><td><code>c ? x : y</code></td><td>就是一個 2 選 1 多工器</td></tr>
+</tbody></table></div>
+
+<h2>位元寬度規則（最常被扣分的地方）</h2>
+<p>Verilog/SV 的運算不是「各算各的」，而是<strong>先看整個式子（包含等號左邊）裡最寬的是多寬，所有運算元都先擴展到那個寬度再算</strong>。這叫 context-determined。</p>
+<pre class="code" data-title="寬度會被左邊決定">logic [7:0]  a = 8'd200, b = 8'd100;
+logic [7:0]  s8;
+logic [8:0]  s9;
+
+assign s8 = a + b;    // 300 裝不下 8 bits -> 44 （溢位，進位被丟掉）
+assign s9 = a + b;    // 左邊 9 bits，a、b 先擴成 9 bits 再加 -> 300 ✔
+
+// 陷阱：比較式裡的加法
+if (a + b > 8'd250)   // 比較運算元會擴到兩邊最寬的寬度 = 8 bits -> 溢位！
+if (9'(a + b) > 250)  // 用 9'( ) 強制寬度（SV 的 cast）</pre>
+
+<div class="key"><span class="tag">口訣</span>
+<ul>
+<li>加法結果多 1 bit；乘法結果寬度是兩者相加（8×8 → 16）。</li>
+<li>串接 <code>{ }</code> 裡面的東西<strong>不會</strong>被擴展，每段保持自己的寬度。</li>
+<li>寬的東西指定給窄的變數：直接砍掉高位元（Vivado 只給 warning，不會報錯）。</li>
+</ul></div>
+
+<h3>移位的細節</h3>
+<pre class="code" data-title="移位">logic [7:0] x = 8'b1001_0110;
+x << 2      // 8'b0101_1000（高位被丟掉）
+x >> 2      // 8'b0010_0101
+x >>> 2     // x 是無號 -> 跟 >> 一樣補 0！
+
+logic signed [7:0] y = -8'sd8;   // 8'b1111_1000
+y >>> 1     // 8'b1111_1100 = -4  ✔ 補符號位
+y >> 1      // 8'b0111_1100 = 124 ✘ 邏輯右移不管正負
+
+// 用移位取代乘除（2 的次方）
+x << 3      // x * 8
+x >> 1      // x / 2（無號，無條件捨去）
+(x << 1) + x    // x * 3</pre>
+</section>
+
+<!-- ============================================================ -->
+<section class="tabpanel" id="sv-signed" data-label="有號數（A 題核心）">
+<h2>有號數：A 題每年都考</h2>
+<p>電路裡只有 0 和 1。<code>8'b1111_1111</code> 是 255 還是 -1，完全看你<strong>怎麼解讀</strong>。有號數用二補數（two's complement）：最高位元是符號位，<code>-x = ~x + 1</code>。</p>
+<div class="tbl"><table>
+<thead><tr><th>8-bit 二進位</th><th>無號</th><th>有號</th></tr></thead>
+<tbody class="num">
+<tr><td><code>0000_0101</code></td><td>5</td><td>5</td></tr>
+<tr><td><code>0111_1111</code></td><td>127</td><td>127（最大）</td></tr>
+<tr><td><code>1000_0000</code></td><td>128</td><td>-128（最小）</td></tr>
+<tr><td><code>1111_1011</code></td><td>251</td><td>-5</td></tr>
+<tr><td><code>1111_1111</code></td><td>255</td><td>-1</td></tr>
+</tbody></table></div>
+
+<h3>符號延伸（sign extension）</h3>
+<p>把 8-bit 有號數放進 16 bits，要把符號位往左複製，值才不變：<code>-5 = 1111_1011</code> → <code>1111_1111_1111_1011</code>。題目說 "with sign extension" 就是這個意思。</p>
+<figure>
+<div class="fig">
+<svg viewBox="0 0 640 150" width="640" height="150" role="img" aria-label="sign extension of -5 from 8 to 16 bits">
+  <text x="10" y="30" class="d-text" font-size="13">8-bit  -5</text>
+  <g font-size="14">
+    <rect x="330" y="12" width="300" height="28" class="d-soft"/>
+    <text x="338" y="31" class="d-text">1 1 1 1 1 0 1 1</text>
+    <rect x="330" y="12" width="36" height="28" fill="none" class="d-accent" stroke-width="2"/>
+  </g>
+  <text x="10" y="110" class="d-text" font-size="13">16-bit -5</text>
+  <rect x="30" y="92" width="300" height="28" class="d-accent-f" opacity=".18"/>
+  <text x="38" y="111" class="d-text" font-size="14">1 1 1 1 1 1 1 1</text>
+  <rect x="330" y="92" width="300" height="28" class="d-soft"/>
+  <text x="338" y="111" class="d-text" font-size="14">1 1 1 1 1 0 1 1</text>
+  <path d="M348 42 C 300 70, 200 70, 180 90" fill="none" class="d-accent" stroke-width="1.5" stroke-dasharray="4 3"/>
+  <text x="120" y="76" class="d-muted" font-size="12">複製符號位 bit 7</text>
+</svg>
+</div>
+<figcaption>正數補 0、負數補 1。宣告成 <code>signed</code> 後，工具會自動做這件事。</figcaption>
+</figure>
+
+<h3>規則：整個式子「全部都是 signed」才會做有號運算</h3>
+<pre class="code" data-title="signed 的規則">input  logic signed [7:0]  A, B;     // 宣告成 signed
+output logic signed [15:0] out;
+
+out = A * B;            // ✔ 全部 signed：A、B 先符號延伸到 16 bits 再乘
+out = A * B + 3;        // ✔ 3 是 32-bit signed 整數，還是全 signed
+out = A * B + 16'd3;    // ✘ 16'd3 是 unsigned -> 整個式子變無號！A、B 補 0
+out = A * B + 16'sd3;   // ✔
+out = A + B[3:0];       // ✘ part-select（B[3:0]）永遠是 unsigned
+out = {A, B};           // 串接結果永遠是 unsigned（但只是放 bits，沒差）
+
+// 補救：$signed() / $unsigned()
+out = A + $signed({1'b0, B[3:0]});</pre>
+
+<div class="warn"><span class="tag">2022 年的陷阱：A * (-B)</span>
+<p>B = -128 時，8-bit 的 <code>-B</code> 還是 -128（溢位）。但 <code>out = A * (-B);</code> 這樣寫是對的，因為 <code>-B</code> 也在 16-bit 的 context 裡算：B 先延伸成 16 bits 再取負 = +128。錯的寫法是先存進 8-bit 變數：<code>logic signed [7:0] nb = -B;</code>。</p></div>
+
+<h3>算術右移 vs 除法</h3>
+<p>2023 年題目要求不用 <code>/</code> 實作 <code>A/4 &gt; B</code>，答案是 <code>(A &gt;&gt;&gt; 2) &gt; B</code>。兩者對負數其實有一點差別：</p>
+<div class="tbl"><table>
+<thead><tr><th>A</th><th><code>A / 4</code>（向 0 捨去）</th><th><code>A &gt;&gt;&gt; 2</code>（向下取整）</th></tr></thead>
+<tbody class="num">
+<tr><td>13</td><td>3</td><td>3</td></tr>
+<tr><td>-13</td><td>-3</td><td>-4</td></tr>
+<tr><td>-8</td><td>-2</td><td>-2</td></tr>
+</tbody></table></div>
+<p>題目提示「Be careful with the sign bit and the shifter」，而且官方 pattern 兩種寫法都會過（已實測 201 筆）。考試時照題目提示用 <code>&gt;&gt;&gt;</code>，並確認 A 有宣告成 signed。</p>
+
+<h3>常見寫法速記</h3>
+<pre class="code" data-title="有號數技巧">// 1) 絕對值
+abs = x[7] ? -x : x;                   // x 為 signed，結果要多 1 bit 才裝得下 128
+
+// 2) 比較大小直接用（兩邊都 signed 才是有號比較）
+out = (A < B) ? -16'sd1 : 16'sd1;
+
+// 3) 溢位偵測：兩個同號相加，結果變號 = 溢位
+logic signed [8:0] s = A + B;           // 多 1 bit 就不會溢位
+sat = (s > 127) ? 127 : (s < -128) ? -128 : s[7:0];   // 飽和（Lab 2 practice）
+
+// 4) 手動符號延伸
+ext = {{8{A[7]}}, A};                   // 8 -> 16 bits</pre>
+</section>
+
+<!-- ============================================================ -->
+<section class="tabpanel" id="sv-comb" data-label="組合邏輯">
+<h2>組合邏輯：輸出只跟「現在的輸入」有關</h2>
+<p>沒有記憶。輸入一變，輸出（經過一點延遲）就跟著變。兩種寫法：</p>
+<div class="split">
+<div>
+<pre class="code" data-title="assign">assign y = sel ? b : a;
+assign parity = ^data;
+assign led = sw | wall;</pre>
+<p class="muted">簡單的一行運算用 <code>assign</code>。</p>
+</div>
+<div>
+<pre class="code" data-title="always_comb">always_comb begin
+    case (ctrl)
+        2'b00:   y = a + b;
+        2'b01:   y = a - b;
+        default: y = '0;
+    endcase
+end</pre>
+<p class="muted">需要 <code>if</code>/<code>case</code> 時用 <code>always_comb</code>，裡面用 <code>=</code>（阻塞）。</p>
+</div>
+</div>
+
+<h3>Latch：組合邏輯最常見的 bug</h3>
+<p>如果某個情況下沒有指定輸出，電路必須「記住上一個值」，工具就會生出 latch。Latch 在 FPGA 上會造成時序問題，考試 C 題可能因此行為怪異。</p>
+<div class="split">
+<div>
+<pre class="code" data-title="✘ 會產生 latch">always_comb begin
+    if (en) y = a;
+    // en = 0 時 y 沒被指定！
+end</pre>
+</div>
+<div>
+<pre class="code" data-title="✔ 每條路徑都有值">always_comb begin
+    y = '0;            // 先給預設值
+    if (en) y = a;
+end</pre>
+</div>
+</div>
+<div class="key"><span class="tag">避免 latch 的兩個習慣</span>
+<ol>
+<li><code>always_comb</code> 第一行先給所有輸出預設值。</li>
+<li><code>case</code> 一定寫 <code>default</code>。</li>
+</ol>
+SystemVerilog 的 <code>always_comb</code> 在產生 latch 時會給 warning，比 Verilog 的 <code>always @(*)</code> 容易抓。</div>
+
+<h3>case 的寫法</h3>
+<pre class="code" data-title="case">always_comb begin
+    case (sel)
+        2'b00:          y = a;
+        2'b01, 2'b10:   y = b;          // 多個值同一個分支
+        default:        y = c;
+    endcase
+end
+
+// if-else 串會有優先順序（先判斷的贏）
+always_comb begin
+    if      (btn_rst)  next = S_RESET;   // 最高優先
+    else if (btn_go)   next = S_START;
+    else               next = state;
+end</pre>
+
+<h3>for 迴圈 = 複製電路</h3>
+<p>在 <code>always_comb</code> 裡的 <code>for</code> 不是「跑很多次」，而是把電路攤開複製 N 份。迴圈次數必須是常數。</p>
+<pre class="code" data-title="數 1 的個數（popcount）">always_comb begin
+    ones = '0;
+    for (int i = 0; i < 16; i++)
+        ones = ones + led[i];      // 合成出 16 個加法器串起來
+end</pre>
+</section>
+
+<!-- ============================================================ -->
+<section class="tabpanel" id="sv-seq" data-label="循序邏輯">
+<h2>循序邏輯：時脈邊緣才更新</h2>
+<p>Flip-flop（正反器）只在 clk 上升緣（posedge）把輸入「拍照」存起來，其他時間保持不變。所有計數器、狀態機、暫存器都是它。</p>
+<pre class="code" data-title="D flip-flop with synchronous reset">always_ff @(posedge clk) begin
+    if (rst) q <= '0;      // 同步 reset：只在 clk 上升緣才看 rst
+    else     q <= d;       // 循序邏輯一律用 <=（非阻塞）
+end</pre>
+
+<h3>同步 reset vs 非同步 reset</h3>
+<p>考試 A、B 題每年都寫「reset synchronously」，Lab 3/4 則用非同步。差別只在敏感清單：</p>
+<div class="split">
+<div>
+<pre class="code" data-title="同步（考試 A/B/C 常用）">always_ff @(posedge clk) begin
+    if (rst) q <= '0;
+    else     q <= d;
+end</pre>
+</div>
+<div>
+<pre class="code" data-title="非同步（Lab 3、Lab 4）">always_ff @(posedge clk or posedge rst) begin
+    if (rst) q <= '0;
+    else     q <= d;
+end</pre>
+</div>
+</div>
+<figure>
+<div class="fig wave" data-wave='{"title":"sync vs async reset","signals":[{"name":"clk","wave":"p......."},{"name":"rst","wave":"0..1.0.."},{"name":"q (sync)","wave":"=...=...","data":["5","0"]},{"name":"q (async)","wave":"=..=....","data":["5","0"]}],"nameW":80}'></div>
+<figcaption>rst 在兩個時脈邊緣中間拉高：非同步 reset 立刻清 0，同步 reset 等到下一個上升緣。助教的 testbench 會在邊緣中間拉 reset 來抓你寫錯。</figcaption>
+</figure>
+
+<h3>阻塞 <code>=</code> vs 非阻塞 <code>&lt;=</code></h3>
+<p>非阻塞：右邊全部用「邊緣之前的舊值」算完，再一起更新。這才符合真實硬體（所有 flip-flop 同時拍照）。</p>
+<div class="split">
+<div>
+<pre class="code" data-title="✔ 非阻塞：真的交換">always_ff @(posedge clk) begin
+    a <= b;
+    b <= a;    // 用的是舊的 a
+end</pre>
+</div>
+<div>
+<pre class="code" data-title="✘ 阻塞：兩個都變 b">always_ff @(posedge clk) begin
+    a = b;
+    b = a;     // a 已經被改成 b 了
+end</pre>
+</div>
+</div>
+<div class="key"><span class="tag">規則，不要例外</span>
+<ul>
+<li><code>always_ff</code> 裡只用 <code>&lt;=</code>。</li>
+<li><code>always_comb</code> 裡只用 <code>=</code>。</li>
+<li>同一個訊號只在一個 always 區塊裡指定。</li>
+</ul></div>
+
+<h3>「晚一拍」：暫存輸出的時序</h3>
+<p>A、B 題都要求「在輸出前加一級 flip-flop」。意思是：第 N 個週期給的輸入，答案在第 N+1 個週期的輸出才看到。</p>
+<figure>
+<div class="fig wave" data-wave='{"title":"registered output","signals":[{"name":"clk","wave":"p......"},{"name":"A","wave":"x====x.","data":["7","-7","3","8"]},{"name":"result","wave":"x====x.","data":["38","-32","..","1"]},{"name":"out","wave":"x.====x","data":["38","-32","..","1"]}],"marks":[{"at":2,"label":"posedge 拍照"}]}'></div>
+<figcaption><code>result</code> 是 <code>always_comb</code> 算出來的（跟著輸入變），<code>out</code> 是 flip-flop（每個上升緣才更新），所以剛好晚一拍。</figcaption>
+</figure>
+<pre class="code" data-title="A 題標準骨架">logic signed [15:0] result;
+
+always_comb begin           // 1) 組合：算答案
+    case (ctrl)
+        2'b00:   result = ...;
+        default: result = ...;
+    endcase
+end
+
+always_ff @(posedge clk) begin   // 2) 循序：存起來
+    if (rst) out <= '0;
+    else     out <= result;
+end</pre>
+
+<h3>計數器：最基本的循序電路</h3>
+<pre class="code" data-title="計數器">logic [3:0] cnt;
+always_ff @(posedge clk) begin
+    if (rst)               cnt <= '0;
+    else if (en) begin
+        if (cnt == 4'd9)   cnt <= '0;        // 0~9 循環
+        else               cnt <= cnt + 4'd1;
+    end
+end</pre>
+</section>
+
+<!-- ============================================================ -->
+<section class="tabpanel" id="sv-hier" data-label="模組化與實例化">
+<h2>實例化（instantiation）：把模組接起來</h2>
+<pre class="code" data-title="三種接法">// 1) 依名稱（推薦，考試範本也要求）
+mux u_mux (.a(and_ab), .b(or_ab), .c(C), .y(out));
+
+// 2) .name 簡寫：外面的訊號名稱跟 port 一樣時
+seven_seg u_seg (.clk, .c3, .c2, .c1, .c0, .DIGIT, .DISPLAY);
+
+// 3) .* 全部自動接同名訊號（testbench 很常用）
+exam1_A dut (.*);
+
+// 參數覆寫
+btn_pulse #(.DB(16)) u_btn (.clk, .rst, .btn(en), .pulse(en_p));</pre>
+<div class="warn"><span class="tag">注意</span>依「順序」接（<code>mux u(a, b, c, y);</code>）容易接錯，Lab 1 testbench 也明確要求用名稱接。</div>
+
+<h3>Gate-level（Lab 1）</h3>
+<p>內建的邏輯閘 primitive：<code>and or not nand nor xor xnor buf</code>。第一個 port 是輸出，後面是輸入。</p>
+<pre class="code" data-title="gate-level 2 選 1 多工器">module mux (input wire a, b, c, output wire y);   // c=0 -> a, c=1 -> b
+    wire c_n, t0, t1;
+    not g0 (c_n, c);
+    and g1 (t0, a, c_n);
+    and g2 (t1, b, c);
+    or  g3 (y, t0, t1);
+endmodule</pre>
+<figure>
+<div class="fig">
+<svg viewBox="0 0 520 170" width="520" height="170" role="img" aria-label="gate level mux">
+  <g fill="none" class="d-stroke" stroke-width="1.6">
+    <path d="M200 30 h30 a25 25 0 0 1 0 50 h-30 z"/>
+    <path d="M200 100 h30 a25 25 0 0 1 0 50 h-30 z"/>
+    <path d="M320 65 q20 25 0 50 q50 0 70 -25 q-20 -25 -70 -25 z"/>
+    <path d="M110 135 l26 -14 l-26 -14 z"/><circle cx="140" cy="121" r="4"/>
+    <line x1="40" y1="45" x2="200" y2="45"/>
+    <line x1="40" y1="115" x2="200" y2="115"/>
+    <line x1="40" y1="160" x2="170" y2="160"/>
+    <path d="M70 160 V121 H110"/>
+    <path d="M144 121 H170 V65 H200"/>
+    <path d="M170 160 V135 H200"/>
+    <path d="M255 55 H290 V80 H328"/>
+    <path d="M255 125 H290 V100 H328"/>
+    <line x1="390" y1="90" x2="470" y2="90"/>
+  </g>
+  <circle cx="70" cy="160" r="3" class="d-accent-f"/>
+  <g font-size="13" class="d-text">
+    <text x="20" y="49" class="d-text">a</text><text x="20" y="119" class="d-text">b</text><text x="20" y="164" class="d-text">c</text>
+    <text x="478" y="94" class="d-text">y</text>
+    <text x="209" y="59" class="d-muted" font-size="11">and</text><text x="209" y="129" class="d-muted" font-size="11">and</text>
+    <text x="345" y="94" class="d-muted" font-size="11">or</text><text x="104" y="104" class="d-muted" font-size="11">not</text>
+  </g>
+</svg>
+</div>
+<figcaption>y = a·c' + b·c。Lab 1 的 function selector 就是把 A&amp;B、A|B 接到這個 MUX。</figcaption>
+</figure>
+
+<h3>一個檔案放多個模組</h3>
+<p>C 題要求「所有模組放同一個檔案」。直接把子模組寫在主模組 <code>endmodule</code> 後面就好，順序沒關係。<strong>不要重複定義同名模組</strong>（例如範本已經有 <code>debounce</code>，你又貼一個）。</p>
+</section>
+
+<!-- ============================================================ -->
+<section class="tabpanel" id="sv-vs-v" data-label="Verilog 對照">
+<h2>Verilog → SystemVerilog 對照表</h2>
+<p>考古題範本是 Verilog。把考古題答案改成 SV 時照這張表換就好；兩種語法在 <code>.sv</code> 檔裡其實都能用，但 SV 寫法能讓工具幫你抓錯。</p>
+<div class="tbl"><table>
+<thead><tr><th>用途</th><th>Verilog</th><th>SystemVerilog</th><th>為什麼比較好</th></tr></thead>
+<tbody>
+<tr><td>訊號型別</td><td><code>wire</code> / <code>reg</code></td><td><code>logic</code></td><td>不用煩惱該用哪個</td></tr>
+<tr><td>組合邏輯</td><td><code>always @(*)</code></td><td><code>always_comb</code></td><td>產生 latch 會警告；敏感清單自動完整</td></tr>
+<tr><td>循序邏輯</td><td><code>always @(posedge clk)</code></td><td><code>always_ff @(posedge clk)</code></td><td>寫成組合邏輯會報錯</td></tr>
+<tr><td>狀態編碼</td><td><code>parameter S0 = 2'd0;</code></td><td><code>typedef enum logic [1:0] {S0, S1} state_t;</code></td><td>波形顯示名稱；不能指定成非法值</td></tr>
+<tr><td>全 0 / 全 1</td><td><code>{16{1'b0}}</code></td><td><code>'0</code> / <code>'1</code></td><td>寬度自動</td></tr>
+<tr><td>迴圈變數</td><td><code>integer i; for (i=0; i&lt;8; i=i+1)</code></td><td><code>for (int i = 0; i &lt; 8; i++)</code></td><td>變數宣告在迴圈內</td></tr>
+<tr><td>遞增</td><td><code>i = i + 1</code></td><td><code>i++</code>、<code>x += 2</code></td><td>僅限 testbench / 迴圈變數</td></tr>
+<tr><td>接 port</td><td><code>.clk(clk)</code></td><td><code>.clk</code> 或 <code>.*</code></td><td>少打字</td></tr>
+<tr><td>強制寬度</td><td>（無）</td><td><code>9'(a + b)</code>、<code>signed'(x)</code></td><td>cast</td></tr>
+<tr><td>參數型別</td><td><code>parameter N = 8</code></td><td><code>parameter int N = 8</code></td><td>型別明確</td></tr>
+</tbody></table></div>
+
+<h3>同一個電路的兩種寫法</h3>
+<div class="split">
+<div>
+<pre class="code" data-title="Verilog">module cnt(input clk, input rst, output reg [3:0] q);
+    parameter IDLE = 1'b0, RUN = 1'b1;
+    reg state;
+    always @(posedge clk) begin
+        if (rst) begin
+            q <= 4'd0; state <= IDLE;
+        end else begin
+            state <= RUN;
+            if (state == RUN) q <= q + 1;
+        end
+    end
+endmodule</pre>
+</div>
+<div>
+<pre class="code" data-title="SystemVerilog">module cnt(input logic clk, rst, output logic [3:0] q);
+    typedef enum logic {IDLE, RUN} state_t;
+    state_t state;
+    always_ff @(posedge clk) begin
+        if (rst) begin
+            q <= '0; state <= IDLE;
+        end else begin
+            state <= RUN;
+            if (state == RUN) q <= q + 1'b1;
+        end
+    end
+endmodule</pre>
+</div>
+</div>
+<div class="note"><span class="tag">檔案</span>Vivado 新增檔案時選 <strong>SystemVerilog</strong>，副檔名 <code>.sv</code>。如果範本是 <code>.v</code> 但你用了 <code>logic</code>、<code>always_ff</code>，要把副檔名改成 <code>.sv</code>（或在 Vivado 裡把檔案類型改成 SystemVerilog），不然會語法錯誤。</div>
+</section>
+</div>

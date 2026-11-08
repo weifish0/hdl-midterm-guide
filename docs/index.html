@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>HDL Exam 1 Prep</title>
+<meta name="description" content="硬體設計與實驗期中上機考準備：SystemVerilog 教學、Lab 1-5 回顧、2021-2023 考古題詳解與模擬考">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=JetBrains+Mono:wght@400;600&family=Noto+Sans+TC:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="assets/style.css">
+<script>try{var t=localStorage.getItem("hdl-theme");if(t&&t!=="system")document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body>
+<header class="top">
+  <div class="top-inner">
+    <div class="brand-row">
+      <a class="brand" href="index.html"><span class="seg" aria-hidden="true"><svg viewBox="0 0 16 28"><polygon points="3,1 13,1 11,3 5,3" class="off"/><polygon points="14,2 14,13 12,12 12,4" class="off"/><polygon points="14,15 14,26 12,24 12,16" class="off"/><polygon points="3,27 13,27 11,25 5,25" class="on"/><polygon points="2,15 4,16 4,24 2,26" class="on"/><polygon points="2,2 4,4 4,12 2,13" class="on"/><polygon points="3,14 5,13 11,13 13,14 11,15 5,15" class="off"/></svg><svg viewBox="0 0 16 28"><polygon points="3,1 13,1 11,3 5,3" class="on"/><polygon points="14,2 14,13 12,12 12,4" class="on"/><polygon points="14,15 14,26 12,24 12,16" class="on"/><polygon points="3,27 13,27 11,25 5,25" class="off"/><polygon points="2,15 4,16 4,24 2,26" class="on"/><polygon points="2,2 4,4 4,12 2,13" class="on"/><polygon points="3,14 5,13 11,13 13,14 11,15 5,15" class="on"/></svg><svg viewBox="0 0 16 28"><polygon points="3,1 13,1 11,3 5,3" class="off"/><polygon points="14,2 14,13 12,12 12,4" class="off"/><polygon points="14,15 14,26 12,24 12,16" class="on"/><polygon points="3,27 13,27 11,25 5,25" class="on"/><polygon points="2,15 4,16 4,24 2,26" class="on"/><polygon points="2,2 4,4 4,12 2,13" class="on"/><polygon points="3,14 5,13 11,13 13,14 11,15 5,15" class="on"/></svg><svg viewBox="0 0 16 28"><polygon points="3,1 13,1 11,3 5,3" class="on"/><polygon points="14,2 14,13 12,12 12,4" class="off"/><polygon points="14,15 14,26 12,24 12,16" class="on"/><polygon points="3,27 13,27 11,25 5,25" class="on"/><polygon points="2,15 4,16 4,24 2,26" class="off"/><polygon points="2,2 4,4 4,12 2,13" class="on"/><polygon points="3,14 5,13 11,13 13,14 11,15 5,15" class="on"/></svg></span><span><span class="brand-name">HDL Exam 1 Prep</span><br><span class="brand-sub">硬體設計與實驗 · 期中上機考 · SystemVerilog</span></span></a>
+      <button type="button" class="theme-btn" id="theme-btn">主題：系統</button>
+    </div>
+    <nav class="pagenav" aria-label="頁面"><a href="index.html" aria-current="page">總覽</a><a href="sv.html">SystemVerilog 語法</a><a href="design.html">設計模式</a><a href="fpga.html">FPGA 實作</a><a href="tb.html">模擬與 Testbench</a><a href="labs.html">Lab 1–5</a><a href="exams.html">歷屆考題</a><a href="mock.html">模擬考</a><a href="cheat.html">考場速查</a></nav>
+  </div>
+</header>
+<main>
+<div class="page-head">
+  <span class="eyebrow">Exam 1 · 範圍 Lab 0 – Lab 5</span>
+  <h1>期中上機考，從零開始準備</h1>
+  <p class="lede">這個網站假設你沒去上課。先搞懂考試長什麼樣子，再照著下面的路線讀：語法 → 設計模式 → 模擬 → FPGA → 考古題 → 模擬考。每段程式碼都能直接複製，也都實際跑過模擬。</p>
+</div>
+
+<h2>考試長這樣</h2>
+<p>根據 2021、2022、2023 三年的期中考，題型固定是三題，兩小時（15:30–17:30），寫完上傳到 OJ。</p>
+<div class="format">
+  <div><span class="pct">30%</span><h3>A · 模擬題</h3><p>同步 ALU：依 <code>ctrl</code> 做四種有號運算，輸出前加一級 flip-flop。用助教的 testbench + pattern 檔驗證。</p></div>
+  <div><span class="pct">30%</span><h3>B · 模擬題</h3><p>照規則運作的循序電路：奇怪的計數器、Hamming 解碼……今年可能出 Lab 5 的記憶體題。</p></div>
+  <div><span class="pct">40%</span><h3>C · FPGA 實作</h3><p>在 Basys3 上做 LED 小遊戲：FSM + 按鈕 + 開關 + LED + 七段顯示器，必須能產生 bitstream。</p></div>
+</div>
+
+<div class="warn">
+  <span class="tag">會被扣分的規則（每年都一樣）</span>
+  <ul>
+    <li>模組名稱必須是 <code>exam1_A</code>、<code>exam1_B</code>、<code>exam1_C</code>，<strong>I/O 不能改</strong>。</li>
+    <li>每個檔案<strong>第一行</strong>是註解：<code>// 學號 姓名</code>，漏了扣 5 分。</li>
+    <li>不能改 testbench、pattern、XDC。助教會用<strong>同一個 testbench、不同 pattern</strong> 重測，所以不能「對答案寫死」。</li>
+    <li>C 題所有用到的模組（除彈跳、七段顯示…）都要放在<strong>同一個檔案</strong>，而且要能合成出 bit 檔，不然 C 題 0 分。</li>
+    <li>B 題常禁止 lookup table、寫死數列；有時禁止 <code>/</code> 或 <code>%</code>（用了只拿一半）。</li>
+  </ul>
+</div>
+
+<h2>今年改用 SystemVerilog，差在哪？</h2>
+<p>舊考題的範本是 Verilog（<code>.v</code>，用 <code>reg</code>/<code>wire</code>、<code>always @(posedge clk)</code>）。今年的 Lab 全部是 <code>.sv</code>，所以考試範本很可能長這樣：</p>
+<div class="split">
+  <div>
+    <h4>舊（Verilog）</h4>
+<pre class="code" data-title="exam1_A.v（2023 範本）">module exam1_A(
+    input wire clk,
+    input wire rst,
+    input wire [7:0] A,
+    output reg [15:0] out
+);
+    always @(posedge clk) begin
+        if (rst) out <= 0;
+        else     out <= A;
+    end
+endmodule</pre>
+  </div>
+  <div>
+    <h4>新（SystemVerilog）</h4>
+<pre class="code" data-title="exam1_A.sv（預期）">module exam1_A (
+    input  logic       clk,
+    input  logic       rst,
+    input  logic [7:0] A,
+    output logic [15:0] out
+);
+    always_ff @(posedge clk) begin
+        if (rst) out <= '0;
+        else     out <= A;
+    end
+endmodule</pre>
+  </div>
+</div>
+<p>邏輯完全一樣，只是寫法更嚴格、更不容易寫錯。完整對照表在 <a href="sv.html#sv-vs-v">SystemVerilog 語法 → Verilog 對照</a>。另外，<strong>Lab 5 的記憶體（RAM、valid bit、write-first）是舊考古題沒有的新範圍</strong>，模擬考 B 題特別練這個。</p>
+
+<h2>讀書路線</h2>
+<ol class="steps">
+  <li><a href="sv.html">SystemVerilog 語法</a>：<code>logic</code>、位元寬度、有號數、<code>always_comb</code> / <code>always_ff</code>、阻塞與非阻塞。A 題的分數幾乎都死在有號數。</li>
+  <li><a href="design.html">設計模式</a>：FSM 三段式、計數器與 tick、按鈕去彈跳、LFSR、記憶體、不用 <code>/</code> <code>%</code> 的數學技巧。</li>
+  <li><a href="tb.html">模擬與 Testbench</a>：看懂助教的 testbench 為什麼要求「晚一拍」輸出，怎麼加 pattern 檔。</li>
+  <li><a href="fpga.html">FPGA 實作</a>：Basys3 腳位、七段顯示器掃描、C 題的標準架構、Vivado 流程與常見錯誤。</li>
+  <li><a href="labs.html">Lab 1–5 回顧</a>：每個 practice 的重點與解答，這些就是考題的零件。</li>
+  <li><a href="exams.html">歷屆考題</a>：2021–2023 共 9 題，逐題拆解思路、完整解答、易錯點。</li>
+  <li><a href="mock.html">模擬考</a>：三題新題目 + testbench，限時兩小時自己寫；另有觀念測驗。</li>
+  <li><a href="cheat.html">考場速查</a>：考前最後一天只看這頁。</li>
+</ol>
+
+<h2>考古題一覽</h2>
+<div class="tbl"><table>
+  <thead><tr><th>年份</th><th>A（30%）同步 ALU</th><th>B（30%）循序電路</th><th>C（40%）FPGA</th></tr></thead>
+  <tbody>
+    <tr><td class="num">2021</td><td><code>A*B</code>、<code>{A&amp;B, A|B}</code>、<code>A&gt;&gt;&gt;3</code>、<code>A-B</code></td><td>規則計數器：上數到 183921，再下數到 0</td><td>兩個 LED 賽跑者，撞牆/互撞反彈、計次</td></tr>
+    <tr><td class="num">2022</td><td><code>A*(-B)</code>、xor/nor 串接、<code>A+B</code>、比大小</td><td>類費氏計數器，禁用 <code>/</code>、<code>%</code></td><td>AI 與玩家搶旗子，玩家可變大小變速</td></tr>
+    <tr><td class="num">2023</td><td><code>A*B+3</code>、and/xor 串接、<code>(A+B)&lt;&lt;2</code>、不用 <code>/</code> 比較 <code>A/4</code></td><td>Hamming(12,8) 單錯更正 + 小 ALU</td><td>兩條蛇吃蘋果，計時 10 秒、分差 3 結束</td></tr>
+  </tbody>
+</table></div>
+<p class="muted">規律：A 題每年都是「有號數 + 位元寬度 + 一級暫存器」；B 題是「把文字規則翻成狀態與計數器」；C 題是「FSM + 多種速度的 tick + 按鈕 + LED 位置 + 七段顯示」。</p>
+
+<h2>兩小時怎麼分配</h2>
+<div class="tbl"><table>
+  <thead><tr><th>時間</th><th>做什麼</th></tr></thead>
+  <tbody>
+    <tr><td class="num">0–5 分</td><td>三題都掃一遍，填好每個檔案第一行的學號姓名。</td></tr>
+    <tr><td class="num">5–30 分</td><td>A 題：最快拿分。寫完立刻模擬，PASS 就上傳。</td></tr>
+    <tr><td class="num">30–65 分</td><td>B 題：先在紙上算前 5 個值，確認懂規則再寫。上傳。</td></tr>
+    <tr><td class="num">65–115 分</td><td>C 題：先讓 RESET 狀態 + LED + 七段顯示正確（部分分數），燒進板子確認；再一個功能一個功能加。每加一項就重新產生 bitstream 並上傳一次。</td></tr>
+    <tr><td class="num">最後 5 分</td><td>確認三個檔案都上傳成功、模組名稱正確。</td></tr>
+  </tbody>
+</table></div>
+<div class="key"><span class="tag">策略</span>C 題的評分是一項一項給的（RESET 5%、移動 10%…）。<strong>能合成、部分正確</strong>遠比「全部寫完但合成失敗」好。合成一次要幾分鐘，所以早點開始跑。</div>
+
+<h2>交卷前檢查</h2>
+<ul class="check">
+  <li><input type="checkbox" id="c1"><label for="c1">三個檔案第一行都是 <code>// 學號 姓名</code></label></li>
+  <li><input type="checkbox" id="c2"><label for="c2">模組名稱與 I/O 跟範本一模一樣</label></li>
+  <li><input type="checkbox" id="c3"><label for="c3">A、B 題在 Vivado 模擬看到 PASS 訊息（記得把 <code>.dat</code> 加進 simulation sources）</label></li>
+  <li><input type="checkbox" id="c4"><label for="c4">A、B 題輸出是暫存器（晚一拍），reset 是同步的</label></li>
+  <li><input type="checkbox" id="c5"><label for="c5">C 題能 Generate Bitstream，沒有改 XDC</label></li>
+  <li><input type="checkbox" id="c6"><label for="c6">C 題所有子模組都在同一個檔案裡</label></li>
+  <li><input type="checkbox" id="c7"><label for="c7">OJ 上確認三題都上傳成功</label></li>
+</ul>
+<p class="muted">勾選狀態只存在你這台裝置的瀏覽器裡。</p>
+
+</main>
+<footer>
+  自學整理用，題目內容為重點摘要。所有解答程式碼都在 Vivado 2022.1 xsim 模擬或合成驗證過；FPGA 題沒有上板實測，行為以題目與助教 demo 為準。
+  原始碼：<a href="https://github.com/weifish0/hdl-midterm-guide">GitHub</a>
+</footer>
+<script src="assets/app.js"></script>
+</body>
+</html>

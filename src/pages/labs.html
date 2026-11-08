@@ -1,0 +1,140 @@
+<!--meta {"title": "Lab 1–5 回顧 · HDL Exam 1 Prep", "nav": "labs", "mermaid": true, "desc": "Lab 1 到 Lab 5 practice 的重點、解答與易錯點，以及 advanced lab 摘要"}-->
+<div class="page-head">
+  <span class="eyebrow">Part 5 · Labs</span>
+  <h1>Lab 1–5 回顧</h1>
+  <p class="lede">考試範圍就是這些 Lab。每個 practice 都附解答，Lab 1、2、5 的解答已經用助教的 testbench 跑過全部 PASS；Lab 3、4 通過編譯。</p>
+</div>
+
+<div class="tabs">
+<div class="tablist"></div>
+
+<section class="tabpanel" id="lab1" data-label="Lab 1 · Gate-level">
+<h2>Lab 1：Gate-level 設計</h2>
+<div class="grid">
+  <div class="card"><h4>學什麼</h4><p>用 <code>and</code>/<code>or</code>/<code>not</code>/<code>nand</code> 等 primitive 組電路；模組實例化（依名稱接）。</p></div>
+  <div class="card"><h4>考試會用到</h4><p>實例化語法、多工器的概念。考試不會限制只能用 gate-level，但要看得懂。</p></div>
+</div>
+<h3>Practice 1：用 2 選 1 MUX 做 function selector</h3>
+<p>C = 0 輸出 A&amp;B，C = 1 輸出 A|B。先用閘做 MUX（<code>y = a·c' + b·c</code>），再實例化。</p>
+<details class="sol"><summary>解答：practice_1.sv（testbench 8/8 Correct）</summary><div class="sol-body">
+<!--#code labs/practice_1.sv-->
+</div></details>
+
+<h3>Practice 2：Gated D latch</h3>
+<p>G = 1 時 P 跟著 D（透明）；G = 0 時保持。用兩個 NAND 交叉回授做 SR latch，前面再用兩個 NAND 控制 set/reset。</p>
+<details class="sol"><summary>解答：practice_2.sv（testbench All tests passed）</summary><div class="sol-body">
+<!--#code labs/practice_2.sv-->
+</div></details>
+<div class="note"><span class="tag">Latch vs Flip-flop</span>Latch 是「準位觸發」：G = 1 的整段時間都會跟著 D 變。Flip-flop 是「邊緣觸發」：只在 clk 上升那一瞬間取樣。考試的同步電路都用 flip-flop（<code>always_ff @(posedge clk)</code>）；在 <code>always_comb</code> 意外生出的 latch 是 bug。</div>
+</section>
+
+<section class="tabpanel" id="lab2" data-label="Lab 2 · 行為描述">
+<h2>Lab 2：組合與循序的行為描述</h2>
+<p>Lab 2 的兩個 practice 就是考試 A、B 題的縮小版：一個是「組合運算 + 暫存輸出」，一個是「有規則的計數器」。</p>
+
+<h3>Practice 1：8-bit 有號飽和加法器</h3>
+<p>A + B 超過 127 就輸出 127，低於 -128 就輸出 -128，否則正常輸出。輸出要暫存、同步 reset。</p>
+<div class="tbl"><table><thead><tr><th>A</th><th>B</th><th>真正的和</th><th>out</th></tr></thead>
+<tbody class="num"><tr><td>100</td><td>50</td><td>150</td><td>127</td></tr><tr><td>-100</td><td>-50</td><td>-150</td><td>-128</td></tr><tr><td>20</td><td>-30</td><td>-10</td><td>-10</td></tr><tr><td>127</td><td>-128</td><td>-1</td><td>-1</td></tr></tbody></table></div>
+<p>關鍵：用 <strong>9 bits</strong> 的中間變數算和，就不會溢位，再判斷範圍。</p>
+<details class="sol"><summary>解答：lab2_1_practice.sv（PASS 32/32）</summary><div class="sol-body">
+<!--#code labs/lab2_1_practice.sv-->
+</div></details>
+
+<h3>Practice 2：可載入的倒數計數器</h3>
+<p><code>load = 1</code> 時 out 載入 N；之後每拍減 1，減到 0 的那一拍 <code>done = 1</code>（只有一拍），之後停在 0。</p>
+<figure>
+<div class="fig wave" data-wave='{"signals":[{"name":"clk","wave":"p......."},{"name":"load","wave":"010....."},{"name":"N","wave":"x=x.....","data":["3"]},{"name":"out","wave":"=.====..","data":["0","3","2","1","0"]},{"name":"done","wave":"0....10."}]}'></div>
+</figure>
+<details class="sol"><summary>解答：lab2_2_practice.sv（PASS 32/32）</summary><div class="sol-body">
+<!--#code labs/lab2_2_practice.sv-->
+</div></details>
+<div class="warn"><span class="tag">易錯</span><code>done</code> 是暫存器，要在「out 從 1 變 0」的同一個邊緣設成 1，所以條件是 <code>out == 1</code>（舊值），不是 <code>out == 0</code>。</div>
+</section>
+
+<section class="tabpanel" id="lab3" data-label="Lab 3 · FSM 與 LED">
+<h2>Lab 3：FSM、除頻、計時</h2>
+<pre class="mermaid">
+stateDiagram-v2
+    direction LR
+    INITIAL --> LOAD: 下一拍
+    LOAD --> PLAY: 16 顆全亮（4 秒）
+    PLAY --> FINAL: end_light
+    FINAL --> INITIAL: 閃 3 次（3 秒）
+</pre>
+<div class="tbl"><table><thead><tr><th>狀態</th><th>LED</th><th>用到的計時</th></tr></thead>
+<tbody>
+<tr><td>INITIAL</td><td>全亮</td><td>—</td></tr>
+<tr><td>LOAD</td><td>從 LD0 開始每 0.25 秒多亮一顆</td><td>timer 25,000,000</td></tr>
+<tr><td>PLAY</td><td>slow：偶數 LED 以 2<sup>28</sup> 閃；fast：奇數 LED 以 2<sup>27</sup> 閃</td><td>clock divider</td></tr>
+<tr><td>FINAL</td><td>全部每 0.5 秒亮/滅，共 3 次</td><td>timer 50,000,000 + 計次</td></tr>
+</tbody></table></div>
+<details class="sol"><summary>解答：lab3_practice.sv</summary><div class="sol-body">
+<!--#code labs/lab3_practice.sv-->
+</div></details>
+<div class="key"><span class="tag">重點</span>
+<ul><li>除頻器（2 的次方）做不出剛好 0.25 秒；要剛好的時間就用 timer 計數到 N-1 產生 1 拍的 tick。</li>
+<li>timer 的 <code>enable</code> 接「目前狀態 == 某狀態」，離開狀態自動歸零，下次進來重新計時。</li>
+<li><code>~(16'hFFFF &lt;&lt; n)</code> 產生最低 n 個 bit 為 1 的遮罩。</li></ul></div>
+
+<h3>Lab 3 advanced 摘要</h3>
+<ul>
+<li><strong>2 位數加法器</strong>：SET1 → SET2 → RESULT 的 FSM，用 BTNC 切換；七段顯示 BCD 數字，正在設定的兩位每 0.5 秒閃爍；結果 0–198 要拆成百十個位。</li>
+<li><strong>跑馬燈</strong>：在四位七段顯示上循環捲動 "nthuEECS2026"，BTNL/BTNR 改方向，BTNC 暫停，SW0 改速度（1 秒或 0.5 秒）。核心是用一個「起始位置」指標，四位數分別顯示字串的第 k、k+1、k+2、k+3 個字。</li>
+</ul>
+</section>
+
+<section class="tabpanel" id="lab4" data-label="Lab 4 · LFSR 遊戲">
+<h2>Lab 4：按鈕、LFSR、方向遊戲</h2>
+<p>INIT 狀態按 BTNR 讓 LFSR 前進（選起始值），按 BTNU 開始。PLAY 狀態的目標方向是 <code>lfsr[1:0]</code>，按對了 LFSR 前進一步，按錯進 FINAL，LED 全亮 3 秒後回 INIT。</p>
+<pre class="mermaid">
+stateDiagram-v2
+    direction LR
+    INIT --> INIT: btnR / lfsr 前進
+    INIT --> PLAY: btnU
+    PLAY --> PLAY: 按對 / lfsr 前進
+    PLAY --> FINAL: 按錯
+    FINAL --> INIT: 3 秒後 / lfsr = 0001
+</pre>
+<details class="sol"><summary>解答：lab4_practice.sv</summary><div class="sol-body">
+<!--#code labs/lab4_practice.sv-->
+</div></details>
+<div class="key"><span class="tag">重點</span>
+<ul><li>每個按鈕都要經過 debounce + one-pulse，「按一下」才是一個事件。</li>
+<li>LFSR 永遠不能是 0000（全 0 時 XOR 結果也是 0，會卡死）。</li>
+<li>「按錯」時 LFSR 不前進，所以前進的條件要寫在 <code>code == lfsr[1:0]</code> 的分支裡。</li></ul></div>
+
+<h3>Lab 4 advanced 摘要（七段顯示貪食蛇）</h3>
+<ul>
+<li>PS/2 鍵盤（方向鍵、W/S 音量、Enter、Space）；蛇在 4 位七段顯示器的筆劃上移動。</li>
+<li>每 2<sup>26</sup> 週期走一步：讀輸入 → 查路由表求下一個節點 → 判斷撞牆/咬自己 → 吃到肉就不 pop 尾巴。</li>
+<li>蛇身用 32 格 FIFO + head/tail 指標（見 <a href="design.html#memory">記憶體</a>）。</li>
+<li>LFSR 每拍更新，產生候選的肉位置；落在蛇身上就等下一拍。</li>
+</ul>
+<p class="muted">鍵盤與音效不在期中考常見範圍內，但 FIFO、LFSR、FSM、tick 都是。</p>
+</section>
+
+<section class="tabpanel" id="lab5" data-label="Lab 5 · 記憶體">
+<h2>Lab 5：Random Memory Access（新範圍）</h2>
+<p>8 格 × 4 bits 的 RAM，一個讀埠一個寫埠，write-first，每格有 valid bit，並統計有效格數。完整的圖解與波形在 <a href="design.html#memory">設計模式 → 記憶體</a>。</p>
+<div class="tbl"><table><thead><tr><th>輸入情況</th><th>下一拍</th></tr></thead>
+<tbody>
+<tr><td><code>rst</code></td><td>全部 memory、valid、cnt_valid、dout 清 0（同步）</td></tr>
+<tr><td><code>we</code></td><td>memory[wi] ← din、valid[wi] ← 1；原本 invalid 才 cnt_valid + 1</td></tr>
+<tr><td><code>re</code> 且 valid[ri]</td><td>dout ← memory[ri]</td></tr>
+<tr><td><code>re</code> 且 invalid</td><td>dout ← 0</td></tr>
+<tr><td><code>we &amp;&amp; re &amp;&amp; wi == ri</code></td><td>dout ← din（write-first）</td></tr>
+<tr><td><code>!re</code></td><td>dout ← 0</td></tr>
+</tbody></table></div>
+<details class="sol" open><summary>解答：lab5_practice.sv（助教 testbench 13 組 All Test Cases Passed）</summary><div class="sol-body">
+<!--#code labs/lab5_practice.sv-->
+</div></details>
+<div class="warn"><span class="tag">三個常見錯誤</span>
+<ol>
+<li>用原始 7-bit 位址比較讀寫是否衝突（要比對應後的 3-bit index）。</li>
+<li>忘了 write-first 旁路：非阻塞指定下，同一拍讀到的 <code>memory[ri]</code> 還是舊值。</li>
+<li>覆寫已經 valid 的格子也讓 cnt_valid + 1。</li>
+</ol></div>
+<p>考試可能的變形：改成 read-first（同一格同時讀寫回傳舊值）、加上「讀出後清除 valid」、做成 FIFO/stack、統計某種條件的格數。模擬考 B 題就是 stack 版本。</p>
+</section>
+</div>

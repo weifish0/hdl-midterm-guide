@@ -1,0 +1,1204 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>歷屆考題詳解 · HDL Exam 1 Prep</title>
+<meta name="description" content="2021、2022、2023 期中考 A、B、C 九題的題意整理、解題思路、SystemVerilog 解答與易錯點">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=JetBrains+Mono:wght@400;600&family=Noto+Sans+TC:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="assets/style.css">
+<script>try{var t=localStorage.getItem("hdl-theme");if(t&&t!=="system")document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body>
+<header class="top">
+  <div class="top-inner">
+    <div class="brand-row">
+      <a class="brand" href="index.html"><span class="seg" aria-hidden="true"><svg viewBox="0 0 16 28"><polygon points="3,1 13,1 11,3 5,3" class="off"/><polygon points="14,2 14,13 12,12 12,4" class="off"/><polygon points="14,15 14,26 12,24 12,16" class="off"/><polygon points="3,27 13,27 11,25 5,25" class="on"/><polygon points="2,15 4,16 4,24 2,26" class="on"/><polygon points="2,2 4,4 4,12 2,13" class="on"/><polygon points="3,14 5,13 11,13 13,14 11,15 5,15" class="off"/></svg><svg viewBox="0 0 16 28"><polygon points="3,1 13,1 11,3 5,3" class="on"/><polygon points="14,2 14,13 12,12 12,4" class="on"/><polygon points="14,15 14,26 12,24 12,16" class="on"/><polygon points="3,27 13,27 11,25 5,25" class="off"/><polygon points="2,15 4,16 4,24 2,26" class="on"/><polygon points="2,2 4,4 4,12 2,13" class="on"/><polygon points="3,14 5,13 11,13 13,14 11,15 5,15" class="on"/></svg><svg viewBox="0 0 16 28"><polygon points="3,1 13,1 11,3 5,3" class="off"/><polygon points="14,2 14,13 12,12 12,4" class="off"/><polygon points="14,15 14,26 12,24 12,16" class="on"/><polygon points="3,27 13,27 11,25 5,25" class="on"/><polygon points="2,15 4,16 4,24 2,26" class="on"/><polygon points="2,2 4,4 4,12 2,13" class="on"/><polygon points="3,14 5,13 11,13 13,14 11,15 5,15" class="on"/></svg><svg viewBox="0 0 16 28"><polygon points="3,1 13,1 11,3 5,3" class="on"/><polygon points="14,2 14,13 12,12 12,4" class="off"/><polygon points="14,15 14,26 12,24 12,16" class="on"/><polygon points="3,27 13,27 11,25 5,25" class="on"/><polygon points="2,15 4,16 4,24 2,26" class="off"/><polygon points="2,2 4,4 4,12 2,13" class="on"/><polygon points="3,14 5,13 11,13 13,14 11,15 5,15" class="on"/></svg></span><span><span class="brand-name">HDL Exam 1 Prep</span><br><span class="brand-sub">硬體設計與實驗 · 期中上機考 · SystemVerilog</span></span></a>
+      <button type="button" class="theme-btn" id="theme-btn">主題：系統</button>
+    </div>
+    <nav class="pagenav" aria-label="頁面"><a href="index.html">總覽</a><a href="sv.html">SystemVerilog 語法</a><a href="design.html">設計模式</a><a href="fpga.html">FPGA 實作</a><a href="tb.html">模擬與 Testbench</a><a href="labs.html">Lab 1–5</a><a href="exams.html" aria-current="page">歷屆考題</a><a href="mock.html">模擬考</a><a href="cheat.html">考場速查</a></nav>
+  </div>
+</header>
+<main>
+<div class="page-head">
+  <span class="eyebrow">Part 6 · 考古題</span>
+  <h1>歷屆考題詳解</h1>
+  <p class="lede">九題全部改寫成 SystemVerilog。A、B 題都通過驗證：2023 用助教原本的 testbench 與 pattern（28/28、30/30），2021、2022 用依題目規則寫的參考模型產生 800 組 pattern 驗證。C 題都在 Vivado 合成成功，並用縮短時間的模擬檢查過題目的範例情境。</p>
+</div>
+<div class="note"><span class="tag">建議用法</span>先只看「題意」，自己寫 20–40 分鐘，再看「思路」，最後才看解答。直接看解答的效果很差。</div>
+
+<div class="tabs">
+<div class="tablist"></div>
+
+<!-- ======================================================================= -->
+<section class="tabpanel" id="y2023" data-label="2023（112 學年）">
+<h2 id="y2023-A">A · 同步 ALU（30%）</h2>
+<h3>題意</h3>
+<p>輸入 <code>A</code>、<code>B</code> 為 8-bit 有號數，<code>ctrl</code> 2 bits，輸出 <code>out</code> 16-bit 有號，前面加一級 flip-flop（晚一拍），同步 reset 時輸出 0。</p>
+<div class="tbl"><table><thead><tr><th>ctrl</th><th>功能</th><th>例子</th></tr></thead>
+<tbody>
+<tr><td><code>00</code></td><td><code>A*B + 3</code>（符號延伸）</td><td>A=-7、B=5 → -32</td></tr>
+<tr><td><code>01</code></td><td><code>{A &amp; B, A ^ B}</code></td><td>A=1110_0010、B=1100_1110 → 1100_0010_0010_1100</td></tr>
+<tr><td><code>11</code></td><td><code>(A + B) &lt;&lt; 2</code>（符號延伸）</td><td>7 + 12 = 19 → 76</td></tr>
+<tr><td>其他（<code>10</code>）</td><td><code>A/4 &gt; B</code> ? 1 : -1，<strong>不能用 /</strong></td><td>A=8、B=3：2 &gt; 3 不成立 → -1</td></tr>
+</tbody></table></div>
+<h3>思路</h3>
+<ul>
+<li>A、B 宣告成 <code>logic signed [7:0]</code>，result 宣告成 <code>logic signed [15:0]</code>，所有運算自然在 16 bits 有號 context 下完成。</li>
+<li><code>+ 3</code> 寫 <code>16'sd3</code> 或 <code>3</code>，不要寫 <code>16'd3</code>（會讓整個式子變無號）。</li>
+<li><code>(A + B) &lt;&lt; 2</code>：因為左邊 16 bits，A+B 會先在 16 bits 算，不會在 8 bits 溢位。</li>
+<li><code>A/4</code> → <code>A &gt;&gt;&gt; 2</code>（算術右移保留符號）。</li>
+</ul>
+<details class="sol"><summary>解答：exam1_A.sv（官方 testbench 28/28）</summary><div class="sol-body">
+<pre class="code" data-lang="sv" data-title="exam1_A.sv" data-src="code/exam2023/exam1_A.sv">// 2023 Exam1 Problem A — Synchronous ALU (SystemVerilog reference solution)
+`timescale 1ns/1ps
+module exam1_A (
+    input  logic              clk,
+    input  logic              rst,      // synchronous, active-high
+    input  logic signed [7:0] A,
+    input  logic signed [7:0] B,
+    input  logic        [1:0] ctrl,
+    output logic signed [15:0] out
+);
+    logic signed [15:0] result;   // combinational result (next value of out)
+
+    // 1) Combinational part: compute the answer for the CURRENT inputs
+    always_comb begin
+        case (ctrl)
+            // A*B+3 : every operand is signed, so the whole expression is
+            // sign-extended to the 16-bit context before multiplying.
+            2&#x27;b00:   result = A * B + 16&#x27;sd3;
+            // {A&amp;B, A^B}: a concatenation is just bits (8 + 8 = 16 bits)
+            2&#x27;b01:   result = {A &amp; B, A ^ B};
+            // (A+B)&lt;&lt;2 : evaluated in 16 bits, so no overflow of the 8-bit sum
+            2&#x27;b11:   result = (A + B) &lt;&lt;&lt; 2;
+            // A/4 &gt; B without &quot;/&quot; : arithmetic right shift by 2 keeps the sign
+            default: result = ((A &gt;&gt;&gt; 2) &gt; B) ? 16&#x27;sd1 : -16&#x27;sd1;
+        endcase
+    end
+
+    // 2) Sequential part: one flip-flop in front of the output port
+    always_ff @(posedge clk) begin
+        if (rst) out &lt;= 16&#x27;sd0;     // synchronous reset -&gt; only at the clock edge
+        else     out &lt;= result;
+    end
+endmodule
+</pre>
+</div></details>
+<div class="warn"><span class="tag">易錯</span>A 沒宣告 signed 時 <code>A &gt;&gt;&gt; 2</code> 等於 <code>A &gt;&gt; 2</code>（補 0），負數全錯。<code>{A &amp; B, A ^ B}</code> 是串接，不要寫成 <code>(A &amp; B) &lt;&lt; 8 | ...</code> 還搞錯寬度。</div>
+
+<h2 id="y2023-B">B · Hamming 碼更正 + 運算（30%）</h2>
+<h3>題意</h3>
+<p>12-bit 輸入 <code>data</code>（B12…B1，B1 = data[0]），其中 B1、B2、B4、B8 是冗餘位元 r1–r4，其餘 8 個是資料 d1–d8。每筆資料剛好有（最多）一個 bit 錯誤。</p>
+<ol class="steps">
+<li>算 c1 = B1⊕B3⊕B5⊕B7⊕B9⊕B11、c2 = B2⊕B3⊕B6⊕B7⊕B10⊕B11、c3 = B4⊕B5⊕B6⊕B7⊕B12、c4 = B8⊕B9⊕B10⊕B11⊕B12。</li>
+<li><code>{c4,c3,c2,c1}</code> 的值就是錯誤位置（0 = 沒錯），把那個 bit 反相。</li>
+<li>去掉冗餘位元得到 <code>decoded = {d8..d1} = {B12,B11,B10,B9,B7,B6,B5,B3}</code>。</li>
+<li>request = decoded[7:6]，a = decoded[5:3]，b = decoded[2:0]；00 → a&amp;b、01 → a|b、10 → a、11 → b。</li>
+</ol>
+<p>例：<code>0100_0010_1100</code>（左邊是 B12）。算出 c4 c3 c2 c1 = 1 0 1 0 = 10，所以 B10 錯了，翻回來後 decoded = <code>01100101</code>；request = 01（or），a = 100、b = 101，out = <code>101</code>。</p>
+<h3>思路</h3>
+<p>全部都是組合邏輯，最後兩個輸出各加一級暫存器。最優雅的寫法是「用 syndrome 當 index 直接翻那個 bit」：<code>fixed[syndrome - 1] = ~data[syndrome - 1];</code>。也可以用 12 個 case 分支，比較長但不容易錯。</p>
+<details class="sol"><summary>解答：exam1_B.sv（官方 testbench 30/30）</summary><div class="sol-body">
+<pre class="code" data-lang="sv" data-title="exam1_B.sv" data-src="code/exam2023/exam1_B.sv">// 2023 Exam1 Problem B — Hamming(12,8) single-error correction + tiny ALU
+`timescale 1ns/1ps
+module exam1_B (
+    input  logic        clk,
+    input  logic        rst,            // synchronous, active-high
+    input  logic [11:0] data,           // data[0] = B1 ... data[11] = B12
+    output logic [7:0]  decoded,
+    output logic [2:0]  out
+);
+    logic [3:0]  syndrome;              // {c4, c3, c2, c1}
+    logic [11:0] fixed;                 // corrected code word
+    logic [7:0]  dec_c;                 // combinational decoded data
+    logic [2:0]  out_c;                 // combinational final output
+
+    always_comb begin
+        // B(k) is data[k-1]
+        syndrome[0] = data[0] ^ data[2] ^ data[4] ^ data[6] ^ data[8] ^ data[10]; // c1: B1 B3 B5 B7 B9 B11
+        syndrome[1] = data[1] ^ data[2] ^ data[5] ^ data[6] ^ data[9] ^ data[10]; // c2: B2 B3 B6 B7 B10 B11
+        syndrome[2] = data[3] ^ data[4] ^ data[5] ^ data[6] ^ data[11];           // c3: B4 B5 B6 B7 B12
+        syndrome[3] = data[7] ^ data[8] ^ data[9] ^ data[10] ^ data[11];          // c4: B8 B9 B10 B11 B12
+
+        // The syndrome IS the position of the wrong bit (1..12); 0 = no error
+        fixed = data;
+        if (syndrome != 4&#x27;d0 &amp;&amp; syndrome &lt;= 4&#x27;d12)
+            fixed[syndrome - 4&#x27;d1] = ~data[syndrome - 4&#x27;d1];
+
+        // drop r1(B1) r2(B2) r3(B4) r4(B8): keep d8..d1 = B12 B11 B10 B9 B7 B6 B5 B3
+        dec_c = {fixed[11], fixed[10], fixed[9], fixed[8],
+                 fixed[6],  fixed[5],  fixed[4], fixed[2]};
+
+        // request = dec[7:6], a = dec[5:3], b = dec[2:0]
+        case (dec_c[7:6])
+            2&#x27;b00: out_c = dec_c[5:3] &amp; dec_c[2:0];
+            2&#x27;b01: out_c = dec_c[5:3] | dec_c[2:0];
+            2&#x27;b10: out_c = dec_c[5:3];
+            2&#x27;b11: out_c = dec_c[2:0];
+        endcase
+    end
+
+    always_ff @(posedge clk) begin
+        if (rst) begin
+            decoded &lt;= 8&#x27;d0;
+            out     &lt;= 3&#x27;d0;
+        end else begin
+            decoded &lt;= dec_c;
+            out     &lt;= out_c;
+        end
+    end
+endmodule
+</pre>
+</div></details>
+<div class="warn"><span class="tag">易錯</span>位置從 1 開始數，陣列 index 從 0 開始：B<sub>k</sub> 是 <code>data[k-1]</code>。decoded 的順序是 d8 在最高位。</div>
+
+<h2 id="y2023-C">C · 兩條蛇吃蘋果（40%）</h2>
+<h3>題意</h3>
+<div class="tbl"><table><thead><tr><th>項目</th><th>規格</th></tr></thead><tbody>
+<tr><td>按鈕</td><td>rst = BTNC（同步）、en = BTNR、set = BTNL、up = BTNU、down = BTND</td></tr>
+<tr><td>RESET</td><td>Snake111（3 格）在 LD15–13，mode 1；Snake1（1 格）在 LD0。不動、不能改 mode。按 en → START</td></tr>
+<tr><td>START：計時</td><td>每 2<sup>26</sup> 週期 +1；從 9 變 10 時結束</td></tr>
+<tr><td>START：蘋果</td><td>按 set 時把 sw 為 1 的位置加上蘋果（不能放在蛇身上）</td></tr>
+<tr><td>START：移動</td><td>Snake111 初始往右、速度依 mode：2<sup>24</sup>/2<sup>25</sup>/2<sup>26</sup>（up/down 調整）；Snake1 初始往左、2<sup>25</sup></td></tr>
+<tr><td>START：轉向</td><td>碰到 LD0 或 LD15；或 Snake111 右端與 Snake1 相鄰或重疊時，Snake111 轉左、Snake1 轉右</td></tr>
+<tr><td>START：得分</td><td>蛇碰到蘋果得 1 分、蘋果消失；同時碰到給 Snake111</td></tr>
+<tr><td>七段顯示</td><td>左兩位：計時器；右兩位：Snake111 − Snake1 的分差（負數顯示 "-"），例如 "03 2"、"07-1"</td></tr>
+<tr><td>FINISH</td><td>計時到 10 或分差 ≥ 3 時進入。顯示 "S111" / "--S1" / "----"；LED 全亮；按 en → RESET</td></tr>
+</tbody></table></div>
+<pre class="mermaid">
+stateDiagram-v2
+    direction LR
+    RESET --> START: en
+    START --> FINISH: timer = 10 或 |分差| ≥ 3
+    FINISH --> RESET: en
+</pre>
+<h3>思路</h3>
+<ul>
+<li>用<strong>一個</strong> 26-bit 計數器產生 tick24、tick25、tick26，三者自動對齊；Snake111 依 mode 選其中一個。</li>
+<li>Snake111 只存左端 <code>p</code>，右端 <code>r = p - 2</code>，遮罩 <code>16'b111 &lt;&lt; r</code>。Snake1 存位置 <code>q</code>。</li>
+<li><strong>每個 clk</strong> 都根據現在位置算「有效方向」：相鄰（<code>q + 1 &gt;= r</code>）優先、再來是撞邊界。題目範例要求「Snake1 先動、Snake111 還沒動時就已經判定相撞，下一步兩條都要轉向」，所以方向不能只在自己的 tick 才更新。</li>
+<li>蘋果是 16-bit bitmap：<code>apple &lt;= (apple &amp; ~occ) | (set_p ? sw &amp; ~occ : 0)</code>，一行同時處理被吃掉與新增。</li>
+<li>分差用有號數：<code>diff = $signed({1'b0, s111}) - $signed({1'b0, s1})</code>。</li>
+</ul>
+<details class="sol"><summary>解答：exam1_C.sv（Vivado 合成成功；模擬驗證碰撞反彈、平手歸屬、計時結束）</summary><div class="sol-body">
+<pre class="code" data-lang="sv" data-title="exam1_C.sv" data-src="code/exam2023/exam1_C.sv">// 2023 Exam1 Problem C — Two snakes eating apples (SystemVerilog reference solution)
+// Design style: ONE clock (100 MHz) everywhere + &quot;tick&quot; enable pulses.
+//   T0 = 24 -&gt; tick0 every 2^24, tick1 every 2^25, tick2 every 2^26 cycles.
+//   (For simulation you can override T0/DB with small numbers.)
+`timescale 1ns/1ps
+module exam1_C #(parameter int T0 = 24, parameter int DB = 16) (
+    input  logic        clk,
+    input  logic        rst,      // btnC, synchronous active-high
+    input  logic        en,       // btnR
+    input  logic        set,      // btnL
+    input  logic        up,       // btnU
+    input  logic        down,     // btnD
+    input  logic [15:0] sw,
+    output logic [3:0]  DIGIT,
+    output logic [6:0]  DISPLAY,
+    output logic [15:0] led
+);
+    // ---------------- buttons -&gt; single-cycle pulses ----------------
+    logic en_p, set_p, up_p, down_p;
+    btn_pulse #(DB) u_en  (.clk, .rst, .btn(en),   .pulse(en_p));
+    btn_pulse #(DB) u_set (.clk, .rst, .btn(set),  .pulse(set_p));
+    btn_pulse #(DB) u_up  (.clk, .rst, .btn(up),   .pulse(up_p));
+    btn_pulse #(DB) u_dn  (.clk, .rst, .btn(down), .pulse(down_p));
+
+    // ---------------- FSM ----------------
+    typedef enum logic [1:0] {S_RESET, S_START, S_FINISH} state_t;
+    state_t state;
+
+    // ---------------- tick generator ----------------
+    logic [T0+1:0] cnt;                                   // T0+2 bits
+    logic tick0, tick1, tick2;
+    assign tick0 = (state == S_START) &amp;&amp; (cnt[T0-1:0] == &#x27;1);  // 2^24
+    assign tick1 = (state == S_START) &amp;&amp; (cnt[T0:0]   == &#x27;1);  // 2^25
+    assign tick2 = (state == S_START) &amp;&amp; (cnt         == &#x27;1);  // 2^26
+
+    // ---------------- game registers ----------------
+    localparam logic L = 1&#x27;b1, R = 1&#x27;b0;   // L: toward LD15 (index +1), R: toward LD0 (index -1)
+    logic [3:0]  p;        // Snake111 LEFT end; it occupies p, p-1, p-2
+    logic        d111;
+    logic [1:0]  mode;     // 0: 2^24, 1: 2^25, 2: 2^26
+    logic [3:0]  q;        // Snake1 position
+    logic        d1;
+    logic [15:0] apple;
+    logic [4:0]  s111, s1; // scores
+    logic [3:0]  timer;    // 0..10
+
+    // ---------------- combinational helpers ----------------
+    logic [15:0] mask111, mask1, occ;
+    logic [3:0]  r;                       // right end of Snake111
+    logic        contact, eff111, eff1, tick111;
+    logic signed [5:0] diff;
+    logic        hit111, hit1, game_over;
+
+    assign r       = p - 4&#x27;d2;
+    assign mask111 = 16&#x27;b111 &lt;&lt; r;
+    assign mask1   = 16&#x27;b1 &lt;&lt; q;
+    assign occ     = mask111 | mask1;
+
+    // contact: the two ends are next to each other OR overlap (q is always right of r)
+    assign contact = ({1&#x27;b0, q} + 5&#x27;d1 &gt;= {1&#x27;b0, r});
+
+    // effective direction for THIS cycle (contact has the highest priority)
+    always_comb begin
+        if (contact)           eff111 = L;
+        else if (p == 4&#x27;d15)   eff111 = R;
+        else if (r == 4&#x27;d0)    eff111 = L;
+        else                   eff111 = d111;
+
+        if (contact)           eff1 = R;
+        else if (q == 4&#x27;d0)    eff1 = L;
+        else if (q == 4&#x27;d15)   eff1 = R;
+        else                   eff1 = d1;
+    end
+
+    always_comb begin
+        case (mode)
+            2&#x27;d0:    tick111 = tick0;
+            2&#x27;d1:    tick111 = tick1;
+            default: tick111 = tick2;
+        endcase
+    end
+
+    // eating: Snake111 has priority when both touch the same apple
+    assign hit111 = |(apple &amp; mask111);
+    assign hit1   = |(apple &amp; mask1 &amp; ~mask111);
+
+    assign diff      = $signed({1&#x27;b0, s111}) - $signed({1&#x27;b0, s1});
+    assign game_over = (timer == 4&#x27;d10) || (diff &gt;= 6&#x27;sd3) || (diff &lt;= -6&#x27;sd3);
+
+    // ---------------- main sequential block ----------------
+    always_ff @(posedge clk) begin
+        if (rst || (state == S_FINISH &amp;&amp; en_p)) begin
+            state &lt;= S_RESET;
+            cnt   &lt;= &#x27;0;
+            p     &lt;= 4&#x27;d15;  d111 &lt;= R;  mode &lt;= 2&#x27;d1;
+            q     &lt;= 4&#x27;d0;   d1   &lt;= L;
+            apple &lt;= &#x27;0;
+            s111  &lt;= &#x27;0;     s1   &lt;= &#x27;0;
+            timer &lt;= &#x27;0;
+        end else begin
+            case (state)
+                S_RESET: begin
+                    cnt &lt;= &#x27;0;
+                    if (en_p) state &lt;= S_START;
+                end
+
+                S_START: begin
+                    cnt &lt;= cnt + 1&#x27;b1;
+
+                    // directions are re-evaluated every cycle
+                    d111 &lt;= eff111;
+                    d1   &lt;= eff1;
+
+                    // movement (stay in place if blocked on both sides)
+                    if (tick111) begin
+                        if (eff111 == L &amp;&amp; p != 4&#x27;d15)                  p &lt;= p + 4&#x27;d1;
+                        else if (eff111 == R &amp;&amp; r != 4&#x27;d0 &amp;&amp; !contact)  p &lt;= p - 4&#x27;d1;
+                    end
+                    if (tick1) begin
+                        if (eff1 == R &amp;&amp; q != 4&#x27;d0)                     q &lt;= q - 4&#x27;d1;
+                        else if (eff1 == L &amp;&amp; q != 4&#x27;d15 &amp;&amp; !contact)   q &lt;= q + 4&#x27;d1;
+                    end
+
+                    // mode change (only in START)
+                    if (up_p   &amp;&amp; mode != 2&#x27;d2) mode &lt;= mode + 2&#x27;d1;
+                    if (down_p &amp;&amp; mode != 2&#x27;d0) mode &lt;= mode - 2&#x27;d1;
+
+                    // apples: remove eaten ones, add new ones (never on a snake)
+                    apple &lt;= (apple &amp; ~occ) | (set_p ? (sw &amp; ~occ) : 16&#x27;d0);
+                    if (hit111) s111 &lt;= s111 + 5&#x27;d1;
+                    if (hit1)   s1   &lt;= s1 + 5&#x27;d1;
+
+                    // timer (~1 s)
+                    if (tick2 &amp;&amp; timer != 4&#x27;d10) timer &lt;= timer + 4&#x27;d1;
+
+                    if (game_over) state &lt;= S_FINISH;
+                end
+
+                default: ;  // S_FINISH: wait for en (handled above)
+            endcase
+        end
+    end
+
+    // ---------------- outputs ----------------
+    localparam logic [4:0] DASH = 5&#x27;d19, BLANK = 5&#x27;d31;
+    logic [4:0] c3, c2, c1, c0;
+    logic [5:0] abs_diff;
+    assign abs_diff = diff[5] ? -diff : diff;
+
+    always_comb begin
+        if (state == S_FINISH) begin
+            led = 16&#x27;hFFFF;
+            if (diff &gt; 0)      {c3, c2, c1, c0} = {5&#x27;d5, 5&#x27;d1, 5&#x27;d1, 5&#x27;d1};  // &quot;S111&quot;
+            else if (diff &lt; 0) {c3, c2, c1, c0} = {DASH, DASH, 5&#x27;d5, 5&#x27;d1};  // &quot;--S1&quot;
+            else               {c3, c2, c1, c0} = {DASH, DASH, DASH, DASH};  // &quot;----&quot;
+        end else begin
+            led = apple | occ;
+            c3  = (timer == 4&#x27;d10) ? 5&#x27;d1 : 5&#x27;d0;                  // timer tens
+            c2  = (timer == 4&#x27;d10) ? 5&#x27;d0 : {1&#x27;b0, timer};         // timer ones
+            c1  = diff[5] ? DASH : BLANK;                           // sign
+            c0  = abs_diff[4:0];                                    // |diff| (0..3)
+        end
+    end
+
+    seven_seg u_seg (.clk, .c3, .c2, .c1, .c0, .DIGIT, .DISPLAY);
+endmodule
+
+// ===================================================================
+//  Reusable helper modules for FPGA problems (Basys3, 100 MHz clock)
+//  Paste these at the bottom of your exam file: the exam requires
+//  ONE file that contains every module you use.
+// ===================================================================
+
+// -------------------------------------------------------------------
+// btn_pulse: debounce + one-pulse in ONE clock domain (100 MHz).
+//   * The button is sampled once every 2^DB clock cycles
+//     (DB = 16 -&gt; every 0.65 ms), shifted into a 4-bit register.
+//   * &quot;stable&quot; = the last 4 samples were all 1.
+//   * pulse   = rising edge of &quot;stable&quot;, exactly ONE 100 MHz cycle wide.
+// -------------------------------------------------------------------
+module btn_pulse #(parameter int DB = 16) (
+    input  logic clk,
+    input  logic rst,
+    input  logic btn,
+    output logic pulse
+);
+    logic [DB-1:0] div;
+    logic [3:0]    samples;
+    logic          stable, stable_d;
+
+    assign stable = &amp;samples;
+
+    always_ff @(posedge clk) begin
+        if (rst) begin
+            div &lt;= &#x27;0; samples &lt;= &#x27;0; stable_d &lt;= 1&#x27;b0;
+        end else begin
+            div &lt;= div + 1&#x27;b1;
+            if (div == &#x27;0) samples &lt;= {samples[2:0], btn};
+            stable_d &lt;= stable;
+        end
+    end
+
+    assign pulse = stable &amp; ~stable_d;
+endmodule
+
+// -------------------------------------------------------------------
+// seven_seg: 4-digit multiplexed display driver.
+//   * c3 is the LEFTMOST digit, c0 the RIGHTMOST.
+//   * each cN is a 5-bit character code (see the localparams below).
+//   * DIGIT and DISPLAY are ACTIVE-LOW on Basys3.
+//   * DISPLAY = {g, f, e, d, c, b, a}
+// -------------------------------------------------------------------
+module seven_seg (
+    input  logic       clk,
+    input  logic [4:0] c3, c2, c1, c0,
+    output logic [3:0] DIGIT,
+    output logic [6:0] DISPLAY
+);
+    // character codes: 0..9 are the digits themselves
+    localparam logic [4:0] CH_A = 5&#x27;d10, CH_E = 5&#x27;d14, CH_P = 5&#x27;d16,
+                           CH_R = 5&#x27;d17, CH_U = 5&#x27;d18, CH_DASH = 5&#x27;d19,
+                           CH_BLANK = 5&#x27;d31;
+    // &#x27;S&#x27; looks like 5 and &#x27;I&#x27; looks like 1 -&gt; just use 5 and 1
+
+    logic [16:0] refresh = &#x27;0;     // 2^15 cycles per digit (~0.33 ms); &#x27;= 0&#x27; sets the FPGA power-up value
+    logic [4:0]  ch;
+
+    always_ff @(posedge clk) refresh &lt;= refresh + 1&#x27;b1;
+
+    always_comb begin
+        case (refresh[16:15])
+            2&#x27;d0: begin DIGIT = 4&#x27;b1110; ch = c0; end
+            2&#x27;d1: begin DIGIT = 4&#x27;b1101; ch = c1; end
+            2&#x27;d2: begin DIGIT = 4&#x27;b1011; ch = c2; end
+            default: begin DIGIT = 4&#x27;b0111; ch = c3; end
+        endcase
+    end
+
+    always_comb begin
+        case (ch)
+            5&#x27;d0: DISPLAY = 7&#x27;b1000000;
+            5&#x27;d1: DISPLAY = 7&#x27;b1111001;
+            5&#x27;d2: DISPLAY = 7&#x27;b0100100;
+            5&#x27;d3: DISPLAY = 7&#x27;b0110000;
+            5&#x27;d4: DISPLAY = 7&#x27;b0011001;
+            5&#x27;d5: DISPLAY = 7&#x27;b0010010;
+            5&#x27;d6: DISPLAY = 7&#x27;b0000010;
+            5&#x27;d7: DISPLAY = 7&#x27;b1111000;
+            5&#x27;d8: DISPLAY = 7&#x27;b0000000;
+            5&#x27;d9: DISPLAY = 7&#x27;b0010000;
+            CH_A: DISPLAY = 7&#x27;b0001000;
+            CH_E: DISPLAY = 7&#x27;b0000110;
+            CH_P: DISPLAY = 7&#x27;b0001100;
+            CH_R: DISPLAY = 7&#x27;b0101111;   // lowercase r
+            CH_U: DISPLAY = 7&#x27;b1000001;
+            CH_DASH: DISPLAY = 7&#x27;b0111111;
+            default: DISPLAY = 7&#x27;b1111111; // blank
+        endcase
+    end
+endmodule
+</pre>
+</div></details>
+<div class="warn"><span class="tag">易錯</span>
+<ul>
+<li>蛇111 用 2<sup>26</sup> 的 clk_div 當時脈、Snake1 用 2<sup>25</sup>：兩個時脈領域無法正確判斷相撞，按鈕脈衝也會漏。</li>
+<li>計時器「從 9 變 10」就要結束，FINISH 不顯示 10。</li>
+<li>蘋果加在蛇身上要無效：<code>sw &amp; ~occ</code>。</li>
+</ul></div>
+</section>
+
+<!-- ======================================================================= -->
+<section class="tabpanel" id="y2022" data-label="2022（111 學年）">
+<h2 id="y2022-A">A · 同步 ALU（30%）</h2>
+<div class="tbl"><table><thead><tr><th>ctrl</th><th>功能</th><th>例子</th></tr></thead>
+<tbody>
+<tr><td><code>00</code></td><td><code>A * (-B)</code></td><td>A=5、B=-6 → 30</td></tr>
+<tr><td><code>01</code></td><td><code>{A ^ B, ~(A | B)}</code>（xor 串 nor）</td><td>0110_0110、0100_0111 → 0010_0001_1001_1000</td></tr>
+<tr><td><code>11</code></td><td><code>A + B</code></td><td>8 + 9 = 17</td></tr>
+<tr><td>其他</td><td>A &lt; B ? -1 : 1</td><td>A=8、B=6 → 1</td></tr>
+</tbody></table></div>
+<h3>思路</h3>
+<p>跟 2023 一樣的骨架。唯一陷阱是 <code>-B</code>：B = -128 時，8-bit 的 -B 溢位還是 -128。寫在 16-bit 的式子裡（<code>result = A * (-B)</code>）就沒事，因為 B 會先延伸到 16 bits 再取負。</p>
+<details class="sol"><summary>解答：exam1_A.sv（800 組參考模型 pattern 全對，含 ±128 邊界）</summary><div class="sol-body">
+<pre class="code" data-lang="sv" data-title="exam1_A.sv" data-src="code/exam2022/exam1_A.sv">// 2022 Exam1 Problem A — Synchronous ALU (SystemVerilog reference solution)
+`timescale 1ns/1ps
+module exam1_A (
+    input  logic               clk,
+    input  logic               rst,     // synchronous, active-high
+    input  logic signed [7:0]  A,
+    input  logic signed [7:0]  B,
+    input  logic        [1:0]  ctrl,
+    output logic signed [15:0] out
+);
+    logic signed [15:0] result;
+
+    always_comb begin
+        case (ctrl)
+            // -B is evaluated in the 16-bit context, so B = -128 becomes +128
+            // correctly (in 8 bits, -(-128) would overflow back to -128!)
+            2&#x27;b00:   result = A * (-B);
+            2&#x27;b01:   result = {A ^ B, ~(A | B)};          // xor ++ nor
+            2&#x27;b11:   result = A + B;
+            default: result = (A &lt; B) ? -16&#x27;sd1 : 16&#x27;sd1; // both signed -&gt; signed compare
+        endcase
+    end
+
+    always_ff @(posedge clk) begin
+        if (rst) out &lt;= &#x27;0;
+        else     out &lt;= result;
+    end
+endmodule
+</pre>
+</div></details>
+
+<h2 id="y2022-B">B · 類費氏計數器（30%）</h2>
+<h3>題意</h3>
+<p>設 c<sub>i</sub> 為目前值，c<sub>i-1</sub> 為前一個值，S = c<sub>i-1</sub> + c<sub>i</sub>，i 從 1 開始。</p>
+<div class="split">
+<div class="card"><h4>上數（不能用 /），c<sub>0</sub>=0、c<sub>1</sub>=1</h4>
+<ul>
+<li>S%4 = 0 且 S &lt; 16384：(S/2)×3</li>
+<li>S%4 = 0 且 S ≥ 16384：c<sub>i</sub> + i</li>
+<li>S%4 ≠ 0 且 i 奇數：c<sub>i</sub> + 4</li>
+<li>S%4 ≠ 0 且 i 偶數：c<sub>i</sub> + 1</li>
+</ul>到 65176 時轉下數。</div>
+<div class="card"><h4>下數（不能用 %），c<sub>0</sub>=64752、c<sub>1</sub>=65176</h4>
+<ul>
+<li>S%8 = i%8：c<sub>i</sub> &gt;&gt; (i%4)</li>
+<li>否則：c<sub>i</sub> − 6i</li>
+</ul>結果為負就設 0 並結束，再從 1 開始上數。</div>
+</div>
+<p>序列：1 → 5 → 6 → 10 → 24 → … → 64752 → 65176 → 65170 → 16292 → … → 77 → 0 → 1 → 5 …</p>
+<h3>思路</h3>
+<ol class="steps">
+<li>先在紙上（或用 Python）算出前幾項，確認看懂規則。</li>
+<li>暫存器：<code>out</code>（c<sub>i</sub>）、<code>prev</code>（c<sub>i-1</sub>）、<code>i</code>、方向 <code>up</code>。</li>
+<li>S 最大約 130000，要 <strong>17 bits</strong>。16 bits 會溢位。</li>
+<li>取餘數全部換成取低位元：<code>S[1:0]</code>、<code>S[2:0] == i[2:0]</code>、<code>i[1:0]</code>、<code>i[0]</code>。</li>
+<li>(S/2)×3 = <code>(S &gt;&gt; 1) + ((S &gt;&gt; 1) &lt;&lt; 1)</code>；6i = <code>(i &lt;&lt; 2) + (i &lt;&lt; 1)</code>。</li>
+<li>下數的「變負」：先比較 <code>out &lt; 6i</code>，不要真的做減法再看符號（無號數減成負會變成很大的正數）。</li>
+</ol>
+<details class="sol"><summary>解答：exam1_B.sv（連續 1500 拍與參考模型完全一致，跨越兩次上下數循環）</summary><div class="sol-body">
+<pre class="code" data-lang="sv" data-title="exam1_B.sv" data-src="code/exam2022/exam1_B.sv">// 2022 Exam1 Problem B — Fibonacci-like up/down counter (SystemVerilog reference solution)
+// No &quot;/&quot; in count-up and no &quot;%&quot; in count-down: use shifts and bit slices instead.
+`timescale 1ns/1ps
+module exam1_B (
+    input  logic        clk,
+    input  logic        rst,      // synchronous, active-high
+    output logic [15:0] out       // c_i (current value)
+);
+    localparam logic [15:0] TOP = 16&#x27;d65176;
+
+    logic        up;
+    logic [15:0] prev;            // c_(i-1)
+    logic [15:0] i;
+    logic [16:0] S;               // c_(i-1) + c_i  (needs 17 bits!)
+    logic [16:0] nxt;             // c_(i+1), one extra bit for the sign check
+    logic [16:0] six_i;
+
+    assign S     = prev + out;
+    assign six_i = (i &lt;&lt; 2) + (i &lt;&lt; 1);          // 6*i = 4i + 2i
+
+    always_comb begin
+        if (up) begin
+            if (S[1:0] == 2&#x27;b00)                   // S % 4 == 0
+                nxt = (S &lt; 17&#x27;d16384) ? (S &gt;&gt; 1) + ((S &gt;&gt; 1) &lt;&lt; 1)   // (S/2)*3
+                                      : out + i;
+            else
+                nxt = i[0] ? out + 16&#x27;d4 : out + 16&#x27;d1;           // i odd / even
+        end else begin
+            if (S[2:0] == i[2:0])                   // S % 8 == i % 8
+                nxt = out &gt;&gt; i[1:0];                // c_i &gt;&gt; (i % 4)
+            else if (out &lt; six_i)                   // would become negative
+                nxt = 17&#x27;d0;
+            else
+                nxt = out - six_i;
+        end
+    end
+
+    always_ff @(posedge clk) begin
+        if (rst) begin
+            // reset to 0; the &quot;restart&quot; branch below makes the next value 1
+            out &lt;= 16&#x27;d0; prev &lt;= 16&#x27;d0; i &lt;= 16&#x27;d1; up &lt;= 1&#x27;b1;
+        end else if (up &amp;&amp; out == 16&#x27;d0) begin   // restart: c0 = 0, c1 = 1
+            out &lt;= 16&#x27;d1; prev &lt;= 16&#x27;d0; i &lt;= 16&#x27;d1;
+        end else begin
+            prev &lt;= out;
+            out  &lt;= nxt[15:0];
+            if (up &amp;&amp; nxt[15:0] == TOP) begin     // reached the top -&gt; count down
+                up &lt;= 1&#x27;b0; i &lt;= 16&#x27;d1;           // down: c0 = 64752, c1 = 65176
+            end else if (!up &amp;&amp; nxt[15:0] == 16&#x27;d0) begin
+                up &lt;= 1&#x27;b1; i &lt;= 16&#x27;d1;           // finished counting down
+            end else begin
+                i &lt;= i + 16&#x27;d1;
+            end
+        end
+    end
+endmodule
+</pre>
+</div></details>
+<div class="note"><span class="tag">reset 後輸出什麼？</span>題目沒有明講 reset 時輸出 0 還是 1，2022 年的 testbench 我們沒有。本解 reset 輸出 0、下一拍輸出 1（等同下數結束後的重新開始）。考試時請看 testbench 怎麼比對第一筆。</div>
+
+<h2 id="y2022-C">C · AI 與玩家搶旗子（40%）</h2>
+<div class="tbl"><table><thead><tr><th>項目</th><th>規格</th></tr></thead><tbody>
+<tr><td>按鈕</td><td>rst = BTNC、en = BTNR（RESET→START、START↔PAUSE）、set = BTNL（依 sw 加旗子）、up/down 改玩家模式</td></tr>
+<tr><td>RESET</td><td>AI 在 LD15；玩家在 LD2–LD0（mode 1）</td></tr>
+<tr><td>AI</td><td>1 格，每 2<sup>25</sup> 移動，初始由左往右（LD0 之後是 LD15），撞到玩家就反向</td></tr>
+<tr><td>玩家</td><td>永遠由右往左（LD15 之後是 LD0）。mode 0：1 格、2<sup>24</sup>；mode 1：3 格、2<sup>25</sup>；mode 2：5 格、2<sup>26</sup>；改 mode 時從兩側伸縮</td></tr>
+<tr><td>得分</td><td>碰到旗子 +1、旗子消失；同時碰到給 AI。七段左兩位 AI 分數、右兩位玩家分數</td></tr>
+<tr><td>FINISH</td><td>任一方 10 分。顯示 "AIAI" 或 "USER"；LED 以 2<sup>24</sup> 在 0101… 與 1010… 間閃爍</td></tr>
+</tbody></table></div>
+<h3>思路</h3>
+<ul>
+<li>玩家存「中心」<code>uc</code> 和 mode。遮罩先做一個以 bit 0 為中心的基本圖形（mode 1 = bit 15、0、1），再<strong>環狀左旋</strong> uc 位：<code>(base &lt;&lt; uc) | (base &gt;&gt; (16 - uc))</code>。這樣跨越 LD15/LD0 邊界、從兩側伸縮都自動正確。</li>
+<li>4-bit 位置的加減自動環繞（15 + 1 = 0）。</li>
+<li>AI 撞玩家：在 AI 要移動的那一拍，看「玩家這一拍之後的位置」是否擋在前面（兩者可能同一拍移動）。</li>
+</ul>
+<details class="sol"><summary>解答：exam1_C.sv（Vivado 合成成功；模擬驗證搶旗、平手、反彈、PAUSE）</summary><div class="sol-body">
+<pre class="code" data-lang="sv" data-title="exam1_C.sv" data-src="code/exam2022/exam1_C.sv">// 2022 Exam1 Problem C — player_AI vs player_user grabbing flags (SystemVerilog reference solution)
+// ONE clock (100 MHz) + tick enables: tick0 = 2^24, tick1 = 2^25, tick2 = 2^26 cycles.
+`timescale 1ns/1ps
+module exam1_C #(parameter int T0 = 24, parameter int DB = 16) (
+    input  logic        clk,
+    input  logic        rst,      // btnC, synchronous active-high
+    input  logic        en,       // btnR : RESET-&gt;START, START&lt;-&gt;PAUSE
+    input  logic        set,      // btnL : add flags where sw = 1
+    input  logic        up,       // btnU : bigger &amp; slower
+    input  logic        down,     // btnD : smaller &amp; faster
+    input  logic [15:0] sw,
+    output logic [3:0]  DIGIT,
+    output logic [6:0]  DISPLAY,
+    output logic [15:0] led
+);
+    logic en_p, set_p, up_p, down_p;
+    btn_pulse #(DB) u_en  (.clk, .rst, .btn(en),   .pulse(en_p));
+    btn_pulse #(DB) u_set (.clk, .rst, .btn(set),  .pulse(set_p));
+    btn_pulse #(DB) u_up  (.clk, .rst, .btn(up),   .pulse(up_p));
+    btn_pulse #(DB) u_dn  (.clk, .rst, .btn(down), .pulse(down_p));
+
+    typedef enum logic [1:0] {S_RESET, S_START, S_PAUSE, S_FINISH} state_t;
+    state_t state;
+
+    // free-running counter -&gt; tick pulses
+    logic [T0+1:0] cnt;
+    logic t24, t25, t26;
+    always_ff @(posedge clk) begin
+        if (rst) cnt &lt;= &#x27;0;
+        else     cnt &lt;= cnt + 1&#x27;b1;
+    end
+    assign t24 = (cnt[T0-1:0] == &#x27;1);
+    assign t25 = (cnt[T0:0]   == &#x27;1);
+    assign t26 = (cnt         == &#x27;1);
+
+    // ---------------- players ----------------
+    logic [3:0]  ai;          // AI position
+    logic        ai_left;     // 0: moving toward LD0 (index -1, wraps 0 -&gt; 15), 1: toward LD15
+    logic [3:0]  uc;          // user CENTER position, always moves toward LD15 (wraps 15 -&gt; 0)
+    logic [1:0]  mode;        // 0: 1 LED @2^24, 1: 3 LEDs @2^25, 2: 5 LEDs @2^26
+    logic [15:0] flag;
+    logic [3:0]  ai_sc, us_sc;
+    logic        led_phase;   // FINISH flashing
+
+    // user mask = base pattern centred at bit 0, rotated left by uc (wrap-around for free)
+    logic [15:0] base, umask, amask;
+    always_comb begin
+        case (mode)
+            2&#x27;d0:    base = 16&#x27;b0000_0000_0000_0001;  // {0}
+            2&#x27;d1:    base = 16&#x27;b1000_0000_0000_0011;  // {15,0,1}
+            default: base = 16&#x27;b1100_0000_0000_0111;  // {14,15,0,1,2}
+        endcase
+    end
+    assign umask = (base &lt;&lt; uc) | (base &gt;&gt; (5&#x27;d16 - uc));   // rotate-left (uc = 0 is fine)
+    assign amask = 16&#x27;b1 &lt;&lt; ai;
+
+
+    logic u_tick;
+    always_comb begin
+        case (mode)
+            2&#x27;d0:    u_tick = t24;
+            2&#x27;d1:    u_tick = t25;
+            default: u_tick = t26;
+        endcase
+    end
+
+    // where the user WILL be after this edge (both players may move on the same edge)
+    logic [3:0]  uc_n;
+    logic [15:0] umask_n;
+    assign uc_n    = u_tick ? uc + 4&#x27;d1 : uc;
+    assign umask_n = (base &lt;&lt; uc_n) | (base &gt;&gt; (5&#x27;d16 - uc_n));
+
+    // AI next step / bounce
+    // The user always moves toward LD15. If the user is about to cover the AI while the
+    // AI is heading toward it (head-on), the AI turns around right now.
+    logic       eff_left;
+    logic [3:0] ai_fwd, ai_back;
+    assign eff_left = (umask_n[ai] &amp;&amp; !ai_left) ? 1&#x27;b1 : ai_left;
+    assign ai_fwd   = eff_left ? ai + 4&#x27;d1 : ai - 4&#x27;d1;   // 4-bit wrap-around: 0-1 = 15
+    assign ai_back  = eff_left ? ai - 4&#x27;d1 : ai + 4&#x27;d1;
+
+    logic ai_hit, us_hit;
+    assign ai_hit = |(flag &amp; amask);
+    assign us_hit = |(flag &amp; umask &amp; ~amask);     // AI wins a tie
+
+    always_ff @(posedge clk) begin
+        if (rst) begin
+            state &lt;= S_RESET;
+            ai &lt;= 4&#x27;d15; ai_left &lt;= 1&#x27;b0;
+            uc &lt;= 4&#x27;d1;  mode &lt;= 2&#x27;d1;
+            flag &lt;= &#x27;0;  ai_sc &lt;= &#x27;0; us_sc &lt;= &#x27;0;
+            led_phase &lt;= 1&#x27;b0;
+        end else begin
+            // flags can be added in RESET / START / PAUSE
+            if (set_p &amp;&amp; state != S_FINISH) flag &lt;= flag | sw;
+
+            case (state)
+                S_RESET: if (en_p) state &lt;= S_START;
+
+                S_START: begin
+                    if (en_p) state &lt;= S_PAUSE;
+
+                    if (up_p   &amp;&amp; mode != 2&#x27;d2) mode &lt;= mode + 2&#x27;d1;  // expands at both sides
+                    if (down_p &amp;&amp; mode != 2&#x27;d0) mode &lt;= mode - 2&#x27;d1;  // (centre stays)
+
+                    if (u_tick) uc &lt;= uc + 4&#x27;d1;
+
+                    ai_left &lt;= eff_left;
+                    if (t25) begin
+                        if (umask_n[ai_fwd]) begin            // would hit the user -&gt; turn around
+                            ai_left &lt;= ~eff_left;
+                            if (!umask_n[ai_back]) ai &lt;= ai_back;
+                        end else begin
+                            ai &lt;= ai_fwd;
+                        end
+                    end
+
+                    // touching flags (overrides the &quot;add&quot; above for touched bits)
+                    if (ai_hit || us_hit)
+                        flag &lt;= (flag | (set_p ? sw : 16&#x27;d0)) &amp; ~(amask | umask);
+                    if (ai_hit) ai_sc &lt;= ai_sc + 4&#x27;d1;
+                    if (us_hit) us_sc &lt;= us_sc + 4&#x27;d1;
+
+                    if (ai_sc == 4&#x27;d10 || us_sc == 4&#x27;d10) state &lt;= S_FINISH;
+                end
+
+                S_PAUSE: if (en_p) state &lt;= S_START;
+
+                default: if (t24) led_phase &lt;= ~led_phase;   // S_FINISH
+            endcase
+        end
+    end
+
+    // ---------------- outputs ----------------
+    localparam logic [4:0] CH_A = 5&#x27;d10, CH_E = 5&#x27;d14, CH_R = 5&#x27;d17, CH_U = 5&#x27;d18;
+    logic [4:0] c3, c2, c1, c0;
+    always_comb begin
+        if (state == S_FINISH) begin
+            led = led_phase ? 16&#x27;hAAAA : 16&#x27;h5555;
+            if (ai_sc == 4&#x27;d10) {c3, c2, c1, c0} = {CH_A, 5&#x27;d1, CH_A, 5&#x27;d1};     // &quot;AIAI&quot;
+            else                {c3, c2, c1, c0} = {CH_U, 5&#x27;d5, CH_E, CH_R};     // &quot;USER&quot;
+        end else begin
+            led = flag | amask | umask;
+            c3 = (ai_sc == 4&#x27;d10) ? 5&#x27;d1 : 5&#x27;d0;
+            c2 = (ai_sc == 4&#x27;d10) ? 5&#x27;d0 : {1&#x27;b0, ai_sc};
+            c1 = (us_sc == 4&#x27;d10) ? 5&#x27;d1 : 5&#x27;d0;
+            c0 = (us_sc == 4&#x27;d10) ? 5&#x27;d0 : {1&#x27;b0, us_sc};
+        end
+    end
+
+    seven_seg u_seg (.clk, .c3, .c2, .c1, .c0, .DIGIT, .DISPLAY);
+endmodule
+
+// ===================================================================
+//  Reusable helper modules for FPGA problems (Basys3, 100 MHz clock)
+//  Paste these at the bottom of your exam file: the exam requires
+//  ONE file that contains every module you use.
+// ===================================================================
+
+// -------------------------------------------------------------------
+// btn_pulse: debounce + one-pulse in ONE clock domain (100 MHz).
+//   * The button is sampled once every 2^DB clock cycles
+//     (DB = 16 -&gt; every 0.65 ms), shifted into a 4-bit register.
+//   * &quot;stable&quot; = the last 4 samples were all 1.
+//   * pulse   = rising edge of &quot;stable&quot;, exactly ONE 100 MHz cycle wide.
+// -------------------------------------------------------------------
+module btn_pulse #(parameter int DB = 16) (
+    input  logic clk,
+    input  logic rst,
+    input  logic btn,
+    output logic pulse
+);
+    logic [DB-1:0] div;
+    logic [3:0]    samples;
+    logic          stable, stable_d;
+
+    assign stable = &amp;samples;
+
+    always_ff @(posedge clk) begin
+        if (rst) begin
+            div &lt;= &#x27;0; samples &lt;= &#x27;0; stable_d &lt;= 1&#x27;b0;
+        end else begin
+            div &lt;= div + 1&#x27;b1;
+            if (div == &#x27;0) samples &lt;= {samples[2:0], btn};
+            stable_d &lt;= stable;
+        end
+    end
+
+    assign pulse = stable &amp; ~stable_d;
+endmodule
+
+// -------------------------------------------------------------------
+// seven_seg: 4-digit multiplexed display driver.
+//   * c3 is the LEFTMOST digit, c0 the RIGHTMOST.
+//   * each cN is a 5-bit character code (see the localparams below).
+//   * DIGIT and DISPLAY are ACTIVE-LOW on Basys3.
+//   * DISPLAY = {g, f, e, d, c, b, a}
+// -------------------------------------------------------------------
+module seven_seg (
+    input  logic       clk,
+    input  logic [4:0] c3, c2, c1, c0,
+    output logic [3:0] DIGIT,
+    output logic [6:0] DISPLAY
+);
+    // character codes: 0..9 are the digits themselves
+    localparam logic [4:0] CH_A = 5&#x27;d10, CH_E = 5&#x27;d14, CH_P = 5&#x27;d16,
+                           CH_R = 5&#x27;d17, CH_U = 5&#x27;d18, CH_DASH = 5&#x27;d19,
+                           CH_BLANK = 5&#x27;d31;
+    // &#x27;S&#x27; looks like 5 and &#x27;I&#x27; looks like 1 -&gt; just use 5 and 1
+
+    logic [16:0] refresh = &#x27;0;     // 2^15 cycles per digit (~0.33 ms); &#x27;= 0&#x27; sets the FPGA power-up value
+    logic [4:0]  ch;
+
+    always_ff @(posedge clk) refresh &lt;= refresh + 1&#x27;b1;
+
+    always_comb begin
+        case (refresh[16:15])
+            2&#x27;d0: begin DIGIT = 4&#x27;b1110; ch = c0; end
+            2&#x27;d1: begin DIGIT = 4&#x27;b1101; ch = c1; end
+            2&#x27;d2: begin DIGIT = 4&#x27;b1011; ch = c2; end
+            default: begin DIGIT = 4&#x27;b0111; ch = c3; end
+        endcase
+    end
+
+    always_comb begin
+        case (ch)
+            5&#x27;d0: DISPLAY = 7&#x27;b1000000;
+            5&#x27;d1: DISPLAY = 7&#x27;b1111001;
+            5&#x27;d2: DISPLAY = 7&#x27;b0100100;
+            5&#x27;d3: DISPLAY = 7&#x27;b0110000;
+            5&#x27;d4: DISPLAY = 7&#x27;b0011001;
+            5&#x27;d5: DISPLAY = 7&#x27;b0010010;
+            5&#x27;d6: DISPLAY = 7&#x27;b0000010;
+            5&#x27;d7: DISPLAY = 7&#x27;b1111000;
+            5&#x27;d8: DISPLAY = 7&#x27;b0000000;
+            5&#x27;d9: DISPLAY = 7&#x27;b0010000;
+            CH_A: DISPLAY = 7&#x27;b0001000;
+            CH_E: DISPLAY = 7&#x27;b0000110;
+            CH_P: DISPLAY = 7&#x27;b0001100;
+            CH_R: DISPLAY = 7&#x27;b0101111;   // lowercase r
+            CH_U: DISPLAY = 7&#x27;b1000001;
+            CH_DASH: DISPLAY = 7&#x27;b0111111;
+            default: DISPLAY = 7&#x27;b1111111; // blank
+        endcase
+    end
+endmodule
+</pre>
+</div></details>
+<div class="note"><span class="tag">規格沒定義的情況</span>mode 0 的玩家速度是 AI 的兩倍，會從後面追上 AI 並重疊。題目沒說這時該怎麼辦；本解讓 AI 遇到玩家擋路就轉向。考試遇到這類情況，依 demo 影片的行為，或挑一個合理做法即可。</div>
+</section>
+
+<!-- ======================================================================= -->
+<section class="tabpanel" id="y2021" data-label="2021（110 學年）">
+<h2 id="y2021-A">A · 同步 ALU（30%）</h2>
+<div class="tbl"><table><thead><tr><th>ctrl</th><th>功能</th><th>例子</th></tr></thead>
+<tbody>
+<tr><td><code>00</code></td><td><code>A * B</code></td><td>12 × 44 = 528</td></tr>
+<tr><td><code>10</code></td><td><code>{A &amp; B, A | B}</code></td><td>1、3 → 0000_0001_0000_0011</td></tr>
+<tr><td><code>11</code></td><td><code>A &gt;&gt;&gt; 3</code>（符號延伸）</td><td>0011_1100 → 7</td></tr>
+<tr><td>其他（<code>01</code>）</td><td><code>A - B</code></td><td>55 − 44 = 11</td></tr>
+</tbody></table></div>
+<details class="sol"><summary>解答：exam1_A.sv（800 組參考模型 pattern 全對）</summary><div class="sol-body">
+<pre class="code" data-lang="sv" data-title="exam1_A.sv" data-src="code/exam2021/exam1_A.sv">// 2021 Exam1 Problem A — Synchronous ALU (SystemVerilog reference solution)
+`timescale 1ns/1ps
+module exam1_A (
+    input  logic               clk,
+    input  logic               rst,     // synchronous, active-high
+    input  logic signed [7:0]  A,
+    input  logic signed [7:0]  B,
+    input  logic        [1:0]  ctrl,
+    output logic signed [15:0] out
+);
+    logic signed [15:0] result;
+
+    always_comb begin
+        case (ctrl)
+            2&#x27;b00:   result = A * B;           // signed x signed -&gt; 16-bit context
+            2&#x27;b10:   result = {A &amp; B, A | B};  // concatenation (8 + 8 bits)
+            2&#x27;b11:   result = A &gt;&gt;&gt; 3;         // arithmetic shift keeps the sign
+            default: result = A - B;           // 2&#x27;b01
+        endcase
+    end
+
+    always_ff @(posedge clk) begin
+        if (rst) out &lt;= &#x27;0;
+        else     out &lt;= result;
+    end
+endmodule
+</pre>
+</div></details>
+<div class="warn"><span class="tag">注意 ctrl 的順序</span>這年的 <code>10</code> 和 <code>11</code> 有定義，<code>01</code> 是 default。每年對應都不一樣，照題目表格寫，不要憑印象。</div>
+
+<h2 id="y2021-B">B · 規則計數器（30%）</h2>
+<h3>題意</h3>
+<p>從 0 上數到 183921，再下數到 0，重複。i 是「這個方向的第 i 步」，從 1 開始。</p>
+<ul>
+<li>上數：若 S%8 == i%8，S += 3i；否則 S += i。0 → 1 → 3 → 12 → … → 183395 → 183921</li>
+<li>下數：S −= i。183921 → 183920 → 183918 → … → 1211 → 606 → 0</li>
+<li>183921 和 0 在轉折處只出現一次。</li>
+</ul>
+<h3>思路</h3>
+<ul>
+<li>183921 需要 18 bits；題目給 20 bits 的 result。</li>
+<li>上數時算出下一個值 <code>next_val</code>，如果 <code>next_val &gt;= 183921</code>，同時把方向改成下數、i 重設 1。這樣 183921 只會出現一次。</li>
+<li>下數時若 <code>result &lt;= i</code>，代表這步會到 0 或以下：輸出 0、方向改回上數。</li>
+</ul>
+<details class="sol"><summary>解答：exam1_B.sv（連續 2500 拍與參考模型一致）</summary><div class="sol-body">
+<pre class="code" data-lang="sv" data-title="exam1_B.sv" data-src="code/exam2021/exam1_B.sv">// 2021 Exam1 Problem B — up/down &quot;rule&quot; counter (SystemVerilog reference solution)
+`timescale 1ns/1ps
+module exam1_B (
+    input  logic        clk,
+    input  logic        rst,      // synchronous, active-high
+    output logic [19:0] result
+);
+    localparam logic [19:0] MAX = 20&#x27;d183921;
+
+    logic        up;      // 1: counting up, 0: counting down
+    logic [19:0] i;       // the i-th step inside the current direction (starts at 1)
+    logic [19:0] next_val;
+
+    // next value for the up direction  (S % 8 == i % 8  &lt;=&gt;  S[2:0] == i[2:0])
+    always_comb begin
+        if (result[2:0] == i[2:0]) next_val = result + (i &lt;&lt; 1) + i;  // + 3i
+        else                       next_val = result + i;
+    end
+
+    always_ff @(posedge clk) begin
+        if (rst) begin
+            result &lt;= 20&#x27;d0;
+            i      &lt;= 20&#x27;d1;
+            up     &lt;= 1&#x27;b1;
+        end else if (up) begin
+            result &lt;= next_val;
+            if (next_val &gt;= MAX) begin   // reached the top: next step counts down
+                up &lt;= 1&#x27;b0;
+                i  &lt;= 20&#x27;d1;
+            end else begin
+                i  &lt;= i + 20&#x27;d1;
+            end
+        end else begin                   // counting down: S &lt;- S - i
+            if (result &lt;= i) begin       // would reach (or pass) 0
+                result &lt;= 20&#x27;d0;
+                up     &lt;= 1&#x27;b1;
+                i      &lt;= 20&#x27;d1;
+            end else begin
+                result &lt;= result - i;
+                i      &lt;= i + 20&#x27;d1;
+            end
+        end
+    end
+endmodule
+</pre>
+</div></details>
+
+<h2 id="y2021-C">C · LED 賽跑者（40%）</h2>
+<div class="tbl"><table><thead><tr><th>項目</th><th>規格</th></tr></thead><tbody>
+<tr><td>I/O</td><td>rst_btn = BTNC、start_btn = BTNL、sw = 牆</td></tr>
+<tr><td>RESET</td><td>Mr.1 在 LED1（往左）、Mr.2 在 LED10（往右）；七段最左顯示 "R"、右兩位 00</td></tr>
+<tr><td>START</td><td>每 2<sup>25</sup> 移動一格；撞到對方或牆就反向；LD0 再往右會出現在 LD15。右兩位顯示兩人互撞次數。按 start 或撞滿 15 次 → PAUSE。顯示 "S"</td></tr>
+<tr><td>PAUSE</td><td>停止；按 start 回 START，但已 15 次則不行。顯示 "P"</td></tr>
+<tr><td>LED</td><td>Mr.1、Mr.2、牆都亮</td></tr>
+</tbody></table></div>
+<h3>思路：每一步的規則</h3>
+<p>對每個人：算前進位置 <code>n</code>。如果 <code>n</code> 是牆、是對方現在的位置、或兩人前進位置相同，就「撞到」：反向，並往反方向走一格（反方向也被擋住就原地不動，這就是「卡在兩面牆中間」）。</p>
+<p>用題目的情境 1 驗證：Mr.1 在 4、Mr.2 在 7 → 下一步 5、6（相鄰）→ 再下一步兩人的前進位置都是對方 → 反向成 4、7。模擬結果與題目六張圖完全一致。</p>
+<details class="sol"><summary>解答：exam1_C.sv（Vivado 合成成功；模擬重現題目情境 1、3、4）</summary><div class="sol-body">
+<pre class="code" data-lang="sv" data-title="exam1_C.sv" data-src="code/exam2021/exam1_C.sv">// 2021 Exam1 Problem C — Two LED racers with walls (SystemVerilog reference solution)
+// ONE clock (100 MHz) + a tick enable every 2^T cycles (T = 25 -&gt; ~0.34 s per step).
+`timescale 1ns/1ps
+module exam1_C #(parameter int T = 25, parameter int DB = 16) (
+    input  logic        clk,
+    input  logic        rst_btn,    // BTNC, synchronous active-high
+    input  logic        start_btn,  // BTNL, start / pause
+    input  logic [15:0] sw,         // walls
+    output logic [3:0]  DIGIT,
+    output logic [6:0]  DISPLAY,
+    output logic [15:0] led
+);
+    logic rst;
+    assign rst = rst_btn;
+
+    logic start_p;
+    btn_pulse #(DB) u_start (.clk, .rst, .btn(start_btn), .pulse(start_p));
+
+    typedef enum logic [1:0] {S_RESET, S_START, S_PAUSE} state_t;
+    state_t state;
+
+    logic [T-1:0] cnt;
+    logic step;
+    always_ff @(posedge clk) begin
+        if (rst) cnt &lt;= &#x27;0;
+        else     cnt &lt;= cnt + 1&#x27;b1;
+    end
+    assign step = (state == S_START) &amp;&amp; (cnt == &#x27;1);
+
+    // ---------------- racers ----------------
+    // dir = 1 : LEFT  (toward LD15, index + 1)   dir = 0 : RIGHT (toward LD0, index - 1)
+    // 4-bit arithmetic wraps automatically: 15 + 1 = 0, 0 - 1 = 15
+    logic [3:0] m1, m2;
+    logic       d1, d2;
+    logic [4:0] hits;           // number of racer-racer collisions (0..15)
+
+    logic [3:0] n1, n2, b1, b2; // next (forward) and back positions
+    assign n1 = d1 ? m1 + 4&#x27;d1 : m1 - 4&#x27;d1;
+    assign n2 = d2 ? m2 + 4&#x27;d1 : m2 - 4&#x27;d1;
+    assign b1 = d1 ? m1 - 4&#x27;d1 : m1 + 4&#x27;d1;
+    assign b2 = d2 ? m2 - 4&#x27;d1 : m2 + 4&#x27;d1;
+
+    // a racer is blocked by a wall, by the other racer, or when both
+    // would step onto the same LED
+    logic racer_col, blk1, blk2;
+    assign racer_col = (n1 == m2) || (n2 == m1) || (n1 == n2);
+    assign blk1 = sw[n1] || (n1 == m2) || (n1 == n2);
+    assign blk2 = sw[n2] || (n2 == m1) || (n1 == n2);
+
+    always_ff @(posedge clk) begin
+        if (rst) begin
+            state &lt;= S_RESET;
+            m1 &lt;= 4&#x27;d1;  d1 &lt;= 1&#x27;b1;    // Mr.1 at LED1, LEFT
+            m2 &lt;= 4&#x27;d10; d2 &lt;= 1&#x27;b0;    // Mr.2 at LED10, RIGHT
+            hits &lt;= &#x27;0;
+        end else begin
+            case (state)
+                S_RESET: if (start_p) state &lt;= S_START;
+
+                S_START: begin
+                    if (start_p || hits == 5&#x27;d15) state &lt;= S_PAUSE;
+
+                    if (step) begin
+                        // Mr.1: bounce = reverse and move the other way (stay if stuck)
+                        if (blk1) begin
+                            d1 &lt;= ~d1;
+                            if (!sw[b1] &amp;&amp; b1 != m2) m1 &lt;= b1;
+                        end else m1 &lt;= n1;
+                        // Mr.2
+                        if (blk2) begin
+                            d2 &lt;= ~d2;
+                            if (!sw[b2] &amp;&amp; b2 != m1) m2 &lt;= b2;
+                        end else m2 &lt;= n2;
+
+                        if (racer_col &amp;&amp; hits != 5&#x27;d15) hits &lt;= hits + 5&#x27;d1;
+                    end
+                end
+
+                default: // S_PAUSE: resume only if fewer than 15 collisions
+                    if (start_p &amp;&amp; hits != 5&#x27;d15) state &lt;= S_START;
+            endcase
+        end
+    end
+
+    // ---------------- outputs ----------------
+    assign led = sw | (16&#x27;b1 &lt;&lt; m1) | (16&#x27;b1 &lt;&lt; m2);
+
+    localparam logic [4:0] CH_P = 5&#x27;d16, CH_R = 5&#x27;d17, BLANK = 5&#x27;d31;
+    logic [4:0] c3;
+    always_comb begin
+        case (state)
+            S_RESET: c3 = CH_R;
+            S_START: c3 = 5&#x27;d5;          // &quot;S&quot;
+            default: c3 = CH_P;
+        endcase
+    end
+
+    logic [4:0] tens, ones;
+    assign tens = (hits &gt;= 5&#x27;d10) ? 5&#x27;d1 : 5&#x27;d0;
+    assign ones = (hits &gt;= 5&#x27;d10) ? hits - 5&#x27;d10 : hits;
+
+    seven_seg u_seg (.clk, .c3(c3), .c2(BLANK), .c1(tens), .c0(ones),
+                     .DIGIT, .DISPLAY);
+endmodule
+
+// ===================================================================
+//  Reusable helper modules for FPGA problems (Basys3, 100 MHz clock)
+//  Paste these at the bottom of your exam file: the exam requires
+//  ONE file that contains every module you use.
+// ===================================================================
+
+// -------------------------------------------------------------------
+// btn_pulse: debounce + one-pulse in ONE clock domain (100 MHz).
+//   * The button is sampled once every 2^DB clock cycles
+//     (DB = 16 -&gt; every 0.65 ms), shifted into a 4-bit register.
+//   * &quot;stable&quot; = the last 4 samples were all 1.
+//   * pulse   = rising edge of &quot;stable&quot;, exactly ONE 100 MHz cycle wide.
+// -------------------------------------------------------------------
+module btn_pulse #(parameter int DB = 16) (
+    input  logic clk,
+    input  logic rst,
+    input  logic btn,
+    output logic pulse
+);
+    logic [DB-1:0] div;
+    logic [3:0]    samples;
+    logic          stable, stable_d;
+
+    assign stable = &amp;samples;
+
+    always_ff @(posedge clk) begin
+        if (rst) begin
+            div &lt;= &#x27;0; samples &lt;= &#x27;0; stable_d &lt;= 1&#x27;b0;
+        end else begin
+            div &lt;= div + 1&#x27;b1;
+            if (div == &#x27;0) samples &lt;= {samples[2:0], btn};
+            stable_d &lt;= stable;
+        end
+    end
+
+    assign pulse = stable &amp; ~stable_d;
+endmodule
+
+// -------------------------------------------------------------------
+// seven_seg: 4-digit multiplexed display driver.
+//   * c3 is the LEFTMOST digit, c0 the RIGHTMOST.
+//   * each cN is a 5-bit character code (see the localparams below).
+//   * DIGIT and DISPLAY are ACTIVE-LOW on Basys3.
+//   * DISPLAY = {g, f, e, d, c, b, a}
+// -------------------------------------------------------------------
+module seven_seg (
+    input  logic       clk,
+    input  logic [4:0] c3, c2, c1, c0,
+    output logic [3:0] DIGIT,
+    output logic [6:0] DISPLAY
+);
+    // character codes: 0..9 are the digits themselves
+    localparam logic [4:0] CH_A = 5&#x27;d10, CH_E = 5&#x27;d14, CH_P = 5&#x27;d16,
+                           CH_R = 5&#x27;d17, CH_U = 5&#x27;d18, CH_DASH = 5&#x27;d19,
+                           CH_BLANK = 5&#x27;d31;
+    // &#x27;S&#x27; looks like 5 and &#x27;I&#x27; looks like 1 -&gt; just use 5 and 1
+
+    logic [16:0] refresh = &#x27;0;     // 2^15 cycles per digit (~0.33 ms); &#x27;= 0&#x27; sets the FPGA power-up value
+    logic [4:0]  ch;
+
+    always_ff @(posedge clk) refresh &lt;= refresh + 1&#x27;b1;
+
+    always_comb begin
+        case (refresh[16:15])
+            2&#x27;d0: begin DIGIT = 4&#x27;b1110; ch = c0; end
+            2&#x27;d1: begin DIGIT = 4&#x27;b1101; ch = c1; end
+            2&#x27;d2: begin DIGIT = 4&#x27;b1011; ch = c2; end
+            default: begin DIGIT = 4&#x27;b0111; ch = c3; end
+        endcase
+    end
+
+    always_comb begin
+        case (ch)
+            5&#x27;d0: DISPLAY = 7&#x27;b1000000;
+            5&#x27;d1: DISPLAY = 7&#x27;b1111001;
+            5&#x27;d2: DISPLAY = 7&#x27;b0100100;
+            5&#x27;d3: DISPLAY = 7&#x27;b0110000;
+            5&#x27;d4: DISPLAY = 7&#x27;b0011001;
+            5&#x27;d5: DISPLAY = 7&#x27;b0010010;
+            5&#x27;d6: DISPLAY = 7&#x27;b0000010;
+            5&#x27;d7: DISPLAY = 7&#x27;b1111000;
+            5&#x27;d8: DISPLAY = 7&#x27;b0000000;
+            5&#x27;d9: DISPLAY = 7&#x27;b0010000;
+            CH_A: DISPLAY = 7&#x27;b0001000;
+            CH_E: DISPLAY = 7&#x27;b0000110;
+            CH_P: DISPLAY = 7&#x27;b0001100;
+            CH_R: DISPLAY = 7&#x27;b0101111;   // lowercase r
+            CH_U: DISPLAY = 7&#x27;b1000001;
+            CH_DASH: DISPLAY = 7&#x27;b0111111;
+            default: DISPLAY = 7&#x27;b1111111; // blank
+        endcase
+    end
+endmodule
+</pre>
+</div></details>
+<div class="note"><span class="tag">計次時機</span>題目圖中把 +1 標在「兩人相鄰」那一拍；本解在「反彈」那一拍 +1，相差一個 step。依助教 demo 為準，改起來只是把計數條件換成「移動後相鄰且相向」。</div>
+</section>
+
+<!-- ======================================================================= -->
+<section class="tabpanel" id="trends" data-label="出題趨勢">
+<h2>三年下來的規律</h2>
+<div class="tbl"><table>
+<thead><tr><th>題目</th><th>不變的部分</th><th>每年在變的部分</th></tr></thead>
+<tbody>
+<tr><td>A</td><td>8-bit 有號輸入、16-bit 輸出、一級暫存器、同步 reset、四個功能</td><td>ctrl 對應、運算組合（乘、加減、移位、串接、比較）、禁用 /</td></tr>
+<tr><td>B</td><td>把一段文字規則實作成循序電路；禁止寫死數列</td><td>計數規則、禁用 / 或 %、編碼解碼；<strong>今年可能是記憶體</strong></td></tr>
+<tr><td>C</td><td>RESET/START/(PAUSE)/FINISH、按鈕、LED 位置、七段顯示分數或狀態、2<sup>24–26</sup> 速度</td><td>遊戲規則：反彈、搶分、變大小、計時</td></tr>
+</tbody></table></div>
+
+<h3>2026 年可能的變化</h3>
+<ul>
+<li>範本改成 SystemVerilog（<code>logic</code>、<code>always_ff</code>），testbench 也可能是 <code>.sv</code>。</li>
+<li>Lab 5 進入範圍：B 題可能是 RAM / FIFO / stack，搭配 valid bit、位址對應、讀寫衝突規則。</li>
+<li>Lab 4 的 LFSR 可能出現在 C 題（隨機位置）。</li>
+<li>Lab 3 的「精準計時」（timer，不是 2 的次方）可能出現（例如「每 0.5 秒」）。</li>
+</ul>
+<p>以上推測寫成了 <a href="mock.html">模擬考</a>。</p>
+</section>
+</div>
+
+</main>
+<footer>
+  自學整理用，題目內容為重點摘要。所有解答程式碼都在 Vivado 2022.1 xsim 模擬或合成驗證過；FPGA 題沒有上板實測，行為以題目與助教 demo 為準。
+  原始碼：<a href="https://github.com/weifish0/hdl-midterm-guide">GitHub</a>
+</footer>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js"></script>
+<script src="assets/app.js"></script>
+</body>
+</html>

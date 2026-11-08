@@ -1,0 +1,270 @@
+<!--meta {"title": "模擬考 · HDL Exam 1 Prep", "nav": "mock", "desc": "仿期中考格式的三題模擬考（含 testbench 與解答）、觀念測驗、程式預測題"}-->
+<div class="page-head">
+  <span class="eyebrow">Part 7 · 實戰</span>
+  <h1>模擬考</h1>
+  <p class="lede">依考古題的格式與今年範圍（含 Lab 5 記憶體、Lab 4 LFSR）出的三題新題目。限時 2 小時，寫完再看解答。A、B 附 testbench 與 pattern，跟正式考試一樣看 PASS 訊息。</p>
+</div>
+
+<div class="tabs">
+<div class="tablist"></div>
+
+<section class="tabpanel" id="mock-a" data-label="A · ALU">
+<h2>A. [30%] 同步 ALU（Verilog 模擬）</h2>
+<ol>
+<li>設計一個同步 ALU，輸出前要有一級 flip-flop（晚一拍輸出）。</li>
+<li>在 clk 正緣改變，<strong>同步</strong> reset，reset 時輸出 0。</li>
+<li>模組名稱 <code>mock_A</code>，用 <code>mock_A_tb.sv</code> + <code>pattern_mock_A.dat</code> 驗證。</li>
+</ol>
+<div class="tbl"><table><thead><tr><th>訊號</th><th>I/O</th><th>說明</th></tr></thead><tbody>
+<tr><td><code>clk</code></td><td>input</td><td>正緣觸發</td></tr>
+<tr><td><code>rst</code></td><td>input</td><td>同步、高電位有效</td></tr>
+<tr><td><code>A[7:0]</code>、<code>B[7:0]</code></td><td>input</td><td>有號數</td></tr>
+<tr><td><code>ctrl[1:0]</code></td><td>input</td><td>功能選擇</td></tr>
+<tr><td><code>out[15:0]</code></td><td>output</td><td>有號數</td></tr>
+</tbody></table></div>
+<div class="tbl"><table><thead><tr><th>ctrl</th><th>功能</th><th>例子（下一拍的 out）</th></tr></thead><tbody>
+<tr><td><code>00</code></td><td><code>A*A − B</code>（符號延伸）</td><td>A = -5、B = 7 → 18</td></tr>
+<tr><td><code>01</code></td><td>{A or B, A nand B}</td><td>A = 1100_0011、B = 1010_0101 → 1110_0111_0111_1110</td></tr>
+<tr><td><code>10</code></td><td><code>|A − B|</code>（絕對值）</td><td>A = -128、B = 127 → 255</td></tr>
+<tr><td><code>11</code></td><td><code>A</code> 算術右移 <code>B[2:0]</code> 位（符號延伸）</td><td>A = -100、B = 8'd2 → -25</td></tr>
+</tbody></table></div>
+<pre class="code" data-title="mock_A.sv（範本）">`timescale 1ns/1ps
+module mock_A (
+    input  logic               clk,
+    input  logic               rst,
+    input  logic signed [7:0]  A,
+    input  logic signed [7:0]  B,
+    input  logic        [1:0]  ctrl,
+    output logic signed [15:0] out
+);
+    // your design here
+endmodule</pre>
+<p>下載：<a href="code/mock/mock_A_tb.sv">mock_A_tb.sv</a> · <a href="code/mock/pattern_mock_A.dat">pattern_mock_A.dat</a>（兩個都加到 simulation sources）</p>
+<div class="note"><span class="tag">提示</span>|A − B| 最大 255，用 8 bits 有號裝不下；A−B 本身需要 9 bits。</div>
+</section>
+
+<section class="tabpanel" id="mock-b" data-label="B · 記憶體堆疊">
+<h2>B. [30%] 8 格堆疊（Verilog 模擬）</h2>
+<p>用記憶體陣列 <code>logic [7:0] mem [0:7]</code> 實作一個 stack（後進先出）。所有輸出都是暫存器（在 clk 正緣更新），同步 reset 清空所有東西。</p>
+<div class="tbl"><table><thead><tr><th>訊號</th><th>I/O</th><th>說明</th></tr></thead><tbody>
+<tr><td><code>valid</code></td><td>input</td><td>這一拍是否有指令</td></tr>
+<tr><td><code>op[1:0]</code></td><td>input</td><td>指令</td></tr>
+<tr><td><code>data[7:0]</code></td><td>input</td><td>PUSH 的資料</td></tr>
+<tr><td><code>out[7:0]</code></td><td>output</td><td>指令結果</td></tr>
+<tr><td><code>cnt[3:0]</code></td><td>output</td><td>目前存了幾筆（0–8）</td></tr>
+<tr><td><code>err</code></td><td>output</td><td>這一拍的指令非法（只維持一拍）</td></tr>
+</tbody></table></div>
+<div class="tbl"><table><thead><tr><th>op</th><th>指令</th><th>行為（valid = 1 時）</th></tr></thead><tbody>
+<tr><td><code>00</code></td><td>PUSH</td><td>未滿：存入 data、cnt+1、out = data。已滿（8 筆）：不存，out = 0，err = 1</td></tr>
+<tr><td><code>01</code></td><td>POP</td><td>非空：out = 最上面那筆並移除、cnt−1。空：out = 0，err = 1</td></tr>
+<tr><td><code>10</code></td><td>PEEK</td><td>out = 最上面那筆（空則 0），不移除</td></tr>
+<tr><td><code>11</code></td><td>SUM</td><td>out = 目前所有資料的總和（取低 8 bits），不移除</td></tr>
+</tbody></table></div>
+<p><code>valid = 0</code> 時什麼都不做，out = 0，err = 0。</p>
+<pre class="code" data-title="mock_B.sv（範本）">`timescale 1ns/1ps
+module mock_B (
+    input  logic       clk,
+    input  logic       rst,
+    input  logic       valid,
+    input  logic [1:0] op,
+    input  logic [7:0] data,
+    output logic [7:0] out,
+    output logic [3:0] cnt,
+    output logic       err
+);
+    logic [7:0] mem [0:7];
+    // your design here
+endmodule</pre>
+<p>下載：<a href="code/mock/mock_B_tb.sv">mock_B_tb.sv</a> · <a href="code/mock/pattern_mock_B.dat">pattern_mock_B.dat</a> · 產生 pattern 的 <a href="code/mock/gen_patterns.py">gen_patterns.py</a></p>
+<div class="note"><span class="tag">提示</span>cnt 剛好可以當堆疊指標：下一筆存到 <code>mem[cnt]</code>，最上面那筆是 <code>mem[cnt-1]</code>。SUM 可以用 <code>always_comb</code> 裡的 for 迴圈。</div>
+</section>
+
+<section class="tabpanel" id="mock-c" data-label="C · 打地鼠">
+<h2>C. [40%] LED 打地鼠（FPGA 實作）</h2>
+<div class="tbl"><table><thead><tr><th>訊號</th><th>腳位</th><th>說明</th></tr></thead><tbody>
+<tr><td><code>clk</code></td><td>W5</td><td>100 MHz</td></tr>
+<tr><td><code>rst</code></td><td>BTNC</td><td>同步 reset，回到 IDLE</td></tr>
+<tr><td><code>btnL</code> / <code>btnR</code></td><td>BTNL / BTNR</td><td>槌子往左（LD15 方向）/ 往右，一次一格，到邊界停住</td></tr>
+<tr><td><code>btnU</code></td><td>BTNU</td><td>敲</td></tr>
+<tr><td><code>btnD</code></td><td>BTND</td><td>IDLE → PLAY；OVER → IDLE</td></tr>
+<tr><td><code>led[15:0]</code></td><td>LD15–LD0</td><td>槌子（恆亮）與地鼠（閃爍）</td></tr>
+<tr><td><code>DIGIT</code> / <code>DISPLAY</code></td><td>七段</td><td>剩餘時間與分數</td></tr>
+</tbody></table></div>
+<h3>狀態</h3>
+<ul>
+<li><strong>IDLE</strong>：槌子在 LD7，七段顯示 "2000"（時間 20、分數 00）。按 btnD 開始。</li>
+<li><strong>PLAY</strong>
+  <ul>
+  <li>剩餘時間從 20 開始，<strong>每 1 秒（剛好 100,000,000 週期）</strong>減 1，到 0 進入 OVER。</li>
+  <li>場上沒有地鼠時，用一個每拍都在跑的 8-bit LFSR 的低 4 bits 當位置產生地鼠（不能出現在槌子底下，那就等下一拍）。</li>
+  <li>地鼠的 LED 以 2<sup>23</sup> 週期的速度閃爍。地鼠存活 2<sup>27</sup> 週期，沒被敲到就消失（不扣分）。</li>
+  <li>槌子在地鼠上方時按 btnU：分數 +1（上限 99），地鼠消失。</li>
+  <li>七段：左兩位剩餘時間，右兩位分數。</li>
+  </ul></li>
+<li><strong>OVER</strong>：七段顯示 "--" + 分數；16 顆 LED 一起以 2<sup>24</sup> 週期亮滅。按 btnD 回 IDLE（分數歸零）。</li>
+</ul>
+<pre class="code" data-title="mock_C.sv（範本）">module mock_C (
+    input  logic        clk,
+    input  logic        rst,
+    input  logic        btnL, btnR, btnU, btnD,
+    output logic [3:0]  DIGIT,
+    output logic [6:0]  DISPLAY,
+    output logic [15:0] led
+);
+    // your design here (you may reuse btn_pulse and seven_seg)
+endmodule</pre>
+<h3>評分（自評用）</h3>
+<div class="tbl"><table><thead><tr><th>項目</th><th>分數</th></tr></thead><tbody>
+<tr><td>IDLE 顯示與 reset</td><td class="num">5%</td></tr>
+<tr><td>槌子移動與邊界</td><td class="num">5%</td></tr>
+<tr><td>倒數計時（精準 1 秒）與進入 OVER</td><td class="num">10%</td></tr>
+<tr><td>地鼠產生、閃爍、逃走</td><td class="num">10%</td></tr>
+<tr><td>敲中得分、七段顯示</td><td class="num">5%</td></tr>
+<tr><td>OVER 顯示與回 IDLE</td><td class="num">5%</td></tr>
+</tbody></table></div>
+</section>
+
+<section class="tabpanel" id="mock-sol" data-label="解答">
+<h2>模擬考解答</h2>
+<p>寫完再打開。三題都通過驗證：A、B 用上面的 testbench 全部 PASS；C 在模擬中驗證過計時、得分、OVER、回到 IDLE。</p>
+<details class="sol"><summary>A 解答：mock_A.sv</summary><div class="sol-body">
+<!--#code mock/mock_A.sv-->
+<p>重點：<code>A*A - B</code> 在 16-bit 有號 context 下計算；絕對值先用 9 bits 的 diff；<code>A &gt;&gt;&gt; B[2:0]</code> 中 A 是 signed，所以補符號位（移位量是 part-select，無號，這是我們要的）。</p>
+</div></details>
+<details class="sol"><summary>B 解答：mock_B.sv</summary><div class="sol-body">
+<!--#code mock/mock_B.sv-->
+<p>重點：<code>cnt</code> 同時是指標；<code>cnt[2:0] - 1</code> 在 cnt = 8 時是 <code>0 - 1 = 7</code>，剛好是最上面那格。每拍先把 <code>err</code>、<code>out</code> 設成 0，後面的分支再覆寫（非阻塞指定最後一個贏）。</p>
+</div></details>
+<details class="sol"><summary>C 解答：mock_C.sv</summary><div class="sol-body">
+<!--#code mock/mock_C.sv-->
+<p>重點：精準 1 秒用計數到 <code>SEC-1</code> 的 timer；地鼠的閃爍、逃走用 2 的次方計數器；LFSR 每拍都跑，需要時才取值。<code>SEC</code>、<code>LIFE</code> 寫成參數，模擬時可以縮小。</p>
+</div></details>
+<details class="sol"><summary>testbench 原始碼</summary><div class="sol-body">
+<!--#code mock/mock_A_tb.sv-->
+<!--#code mock/mock_B_tb.sv-->
+</div></details>
+</section>
+
+<section class="tabpanel" id="quiz" data-label="觀念測驗">
+<h2>觀念測驗（20 題）</h2>
+<p class="score"></p>
+<div class="quiz">
+  <div class="q" data-answer="1"><div class="qt">logic [7:0] a = 200, b = 100; logic [7:0] s; assign s = a + b; s 是多少？</div>
+    <ol><li>300</li><li>44</li><li>255</li><li>X</li></ol>
+    <div class="exp" hidden>左邊只有 8 bits，300 − 256 = 44，進位被丟掉。</div></div>
+  <div class="q" data-answer="2"><div class="qt">logic signed [7:0] y = -8; y &gt;&gt;&gt; 1 是多少？</div>
+    <ol><li>124</li><li>-8</li><li>-4</li><li>4</li></ol>
+    <div class="exp" hidden>y 是 signed，算術右移補符號位：1111_1000 → 1111_1100 = -4。</div></div>
+  <div class="q" data-answer="0"><div class="qt">A、B 是 logic signed [7:0]，out 是 signed [15:0]。out = A * B + 16'd3; 會怎樣？</div>
+    <ol><li>16'd3 是無號，整個式子變無號，A、B 補 0 延伸，負數的結果錯</li><li>完全正確</li><li>編譯錯誤</li><li>只有 +3 那部分錯</li></ol>
+    <div class="exp" hidden>只要有一個運算元是 unsigned，整個式子就用無號運算。改成 16'sd3 或 3。</div></div>
+  <div class="q" data-answer="3"><div class="qt">8-bit × 8-bit 的乘積最多需要幾個 bit？</div>
+    <ol><li>8</li><li>9</li><li>15</li><li>16</li></ol>
+    <div class="exp" hidden>乘積寬度 = 兩者寬度相加。</div></div>
+  <div class="q" data-answer="1"><div class="qt">always_comb begin if (en) y = a; end 會合成出什麼？</div>
+    <ol><li>多工器</li><li>latch</li><li>flip-flop</li><li>編譯錯誤</li></ol>
+    <div class="exp" hidden>en = 0 時 y 沒有被指定，必須記住舊值 → latch。先給預設值 y = '0。</div></div>
+  <div class="q" data-answer="2"><div class="qt">always_ff @(posedge clk) begin a &lt;= b; b &lt;= a; end 的效果？</div>
+    <ol><li>a、b 都變成 b</li><li>a、b 都變成 a</li><li>a 和 b 交換</li><li>不確定</li></ol>
+    <div class="exp" hidden>非阻塞：右邊都用邊緣前的舊值。</div></div>
+  <div class="q" data-answer="0"><div class="qt">同步 reset 的 rst 在兩個上升緣之間拉高，out 什麼時候變 0？</div>
+    <ol><li>下一個上升緣</li><li>立刻</li><li>下一個下降緣</li><li>rst 放開時</li></ol>
+    <div class="exp" hidden>同步 reset 只在時脈邊緣被看到。立刻變 0 的是非同步 reset。</div></div>
+  <div class="q" data-answer="1"><div class="qt">FSM 用 clk_div（2^25）當時脈，按鈕的 one-pulse 在 100 MHz 產生。會發生什麼？</div>
+    <ol><li>正常</li><li>按鈕常常沒反應（1 週期的脈衝被慢時脈漏掉）</li><li>按一次跳很多次</li><li>無法合成</li></ol>
+    <div class="exp" hidden>脈衝只有 10 ns，慢時脈的邊緣幾乎不可能剛好碰到。全部用同一個 clk，慢速事件用 tick 當 enable。</div></div>
+  <div class="q" data-answer="2"><div class="qt">100 MHz 下，2^25 個週期大約多久？</div>
+    <ol><li>0.03 秒</li><li>1 秒</li><li>0.34 秒</li><li>3.4 秒</li></ol>
+    <div class="exp" hidden>33,554,432 × 10 ns ≈ 0.336 秒。</div></div>
+  <div class="q" data-answer="3"><div class="qt">不用 % 時，x % 8 可以寫成？</div>
+    <ol><li>x &gt;&gt; 3</li><li>x &amp; 8</li><li>x[3:0]</li><li>x[2:0]</li></ol>
+    <div class="exp" hidden>對 2^k 取餘數就是取最低 k 位。</div></div>
+  <div class="q" data-answer="0"><div class="qt">Basys3 上 DIGIT = 4'b1110 時，亮的是哪一位？</div>
+    <ol><li>最右邊</li><li>最左邊</li><li>除了最右邊的三位</li><li>全部</li></ol>
+    <div class="exp" hidden>DIGIT 低電位有效，DIGIT[0] 是最右邊。</div></div>
+  <div class="q" data-answer="1"><div class="qt">DISPLAY = {g,f,e,d,c,b,a}、低電位有效。數字 1（亮 b、c）要送？</div>
+    <ol><li>7'b0000110</li><li>7'b1111001</li><li>7'b1001111</li><li>7'b0110000</li></ol>
+    <div class="exp" hidden>b、c 是 bit1、bit2，要亮就是 0，其餘為 1：1111001。</div></div>
+  <div class="q" data-answer="2"><div class="qt">testbench 寫 if (out != 5)。out 是 X 時會怎樣？</div>
+    <ol><li>判定錯誤</li><li>編譯錯誤</li><li>條件是 X，當成 false，錯誤被放過</li><li>判定正確並印出 PASS</li></ol>
+    <div class="exp" hidden>所以 testbench 都用 !==，它會把 X 當成不相等。</div></div>
+  <div class="q" data-answer="1"><div class="qt">pattern 檔一行寫 "3 ae f3 fe84"，用 $readmemh 讀進 36-bit 陣列會？</div>
+    <ol><li>正確讀成一個元素</li><li>被讀成四個元素</li><li>只讀到 3</li><li>報錯</li></ol>
+    <div class="exp" hidden>空白是元素分隔符號。要寫成 3_ae_f3_fe84。</div></div>
+  <div class="q" data-answer="3"><div class="qt">4-bit LFSR 為什麼 reset 成 0001 而不是 0000？</div>
+    <ol><li>習慣</li><li>0000 會溢位</li><li>題目規定而已，沒差</li><li>全 0 時 XOR 回授也是 0，會永遠卡在 0000</li></ol>
+    <div class="exp" hidden>XOR 型 LFSR 的全 0 是吸收狀態。</div></div>
+  <div class="q" data-answer="0"><div class="qt">Lab 5：同一拍 we = re = 1，w_addr = 5A、r_addr = 03（都對應到 index 2）。下一拍 dout？</div>
+    <ol><li>這一拍寫入的 din（write-first）</li><li>index 2 原本的值</li><li>0</li><li>X</li></ol>
+    <div class="exp" hidden>比較的是對應後的 index。write-first 要自己加旁路，因為非阻塞時 memory[2] 還是舊值。</div></div>
+  <div class="q" data-answer="2"><div class="qt">Lab 5：對已經 valid 的格子再寫一次，cnt_valid？</div>
+    <ol><li>+1</li><li>−1</li><li>不變</li><li>歸零</li></ol>
+    <div class="exp" hidden>只有寫入原本 invalid 的格子才 +1。</div></div>
+  <div class="q" data-answer="1"><div class="qt">考試 testbench 在 negedge 比對 out 與 last_ans（上一組答案）。A 題用 assign out = 結果; 會？</div>
+    <ol><li>全部 PASS</li><li>幾乎全部 FAIL，因為早了一拍</li><li>只有 reset 錯</li><li>編譯錯誤</li></ol>
+    <div class="exp" hidden>要用 always_ff 存起來，晚一拍輸出。</div></div>
+  <div class="q" data-answer="3"><div class="qt">16'b111 &lt;&lt; 14 的結果？</div>
+    <ol><li>16'b0000_0000_0000_0111</li><li>17 bits 的 111 後面 14 個 0</li><li>16'b1110_0000_0000_0000</li><li>16'b1100_0000_0000_0000</li></ol>
+    <div class="exp" hidden>最高的那個 1 被移出 16 bits 外，掉了。環狀移動要用 (x &lt;&lt; k) | (x &gt;&gt; (16-k))。</div></div>
+  <div class="q" data-answer="0"><div class="qt">logic [3:0] pos = 0; pos &lt;= pos - 1; 之後 pos 是？</div>
+    <ol><li>15</li><li>-1</li><li>0</li><li>X</li></ol>
+    <div class="exp" hidden>4-bit 無號減法自動繞回，正好用來做 LD0 → LD15 的環繞。</div></div>
+</div>
+<p><button type="button" class="theme-btn quiz-reset">重新作答</button></p>
+</section>
+
+<section class="tabpanel" id="predict" data-label="程式預測題">
+<h2>看程式，說出結果</h2>
+<p>先自己想，再打開答案。</p>
+
+<h3>1. 寬度與串接</h3>
+<pre class="code" data-title="Q1">logic [3:0] a = 4'b1011;
+logic [7:0] r1, r2, r3;
+assign r1 = {a, a[1:0], 2'b01};
+assign r2 = {2{a[3:2]}};
+assign r3 = a << 5;</pre>
+<details class="sol"><summary>答案</summary><div class="sol-body">
+<p>r1 = 1011_11_01 = <code>8'b1011_1101</code>；r2 = {10, 10} = 4 bits → 補成 <code>8'b0000_1010</code>；r3：a 先延伸到 8 bits（0000_1011）再左移 5 = <code>8'b0110_0000</code>（高位掉了）。</p>
+</div></details>
+
+<h3>2. 有號與無號混用</h3>
+<pre class="code" data-title="Q2">logic signed [7:0] a = -3;
+logic        [7:0] b = 2;
+logic signed [15:0] r1, r2;
+assign r1 = a + b;
+assign r2 = a + $signed(b);</pre>
+<details class="sol"><summary>答案</summary><div class="sol-body">
+<p>r1：b 無號 → 整個式子無號，a 被<strong>補 0</strong>延伸成 0x00FD（253），253 + 2 = 255。r2：全 signed，-3 + 2 = <strong>-1</strong>。</p>
+</div></details>
+
+<h3>3. 計數器的值</h3>
+<pre class="code" data-title="Q3">logic [2:0] c;
+always_ff @(posedge clk) begin
+    if (rst)          c <= 3'd0;
+    else if (c == 5)  c <= 3'd1;
+    else              c <= c + 3'd2;
+end
+// rst 之後連續 6 個上升緣，c 依序是？</pre>
+<details class="sol"><summary>答案</summary><div class="sol-body"><p>0 → 2 → 4 → 6 → 0（6+2 = 8 溢位成 0）→ 2 → 4。永遠不會等於 5，那個分支是死的。</p></div></details>
+
+<h3>4. 狀態機</h3>
+<pre class="code" data-title="Q4">typedef enum logic [1:0] {A, B, C} st_t;
+st_t s;
+always_ff @(posedge clk) begin
+    if (rst) s <= A;
+    else case (s)
+        A: if (x) s <= B;
+        B: s <= x ? C : A;
+        C: if (!x) s <= A;
+        default: s <= A;
+    endcase
+end
+// rst 後 x 依序為 1, 1, 1, 0, 1, 0（每拍一個），s 依序是？</pre>
+<details class="sol"><summary>答案</summary><div class="sol-body"><p>A →(x=1) B →(1) C →(1) C →(0) A →(1) B →(0) A。</p></div></details>
+
+<h3>5. 這段為什麼不能合成成你想要的？</h3>
+<pre class="code" data-title="Q5">always_ff @(posedge clk) if (tick) pos <= pos + 1;
+always_ff @(posedge clk) if (rst)  pos <= 0;</pre>
+<details class="sol"><summary>答案</summary><div class="sol-body"><p>同一個訊號在兩個 always 區塊被指定 → multiple driver。合併成一個：<code>if (rst) pos &lt;= 0; else if (tick) pos &lt;= pos + 1;</code></p></div></details>
+</section>
+</div>

@@ -1,0 +1,497 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Lab 1–5 回顧 · HDL Exam 1 Prep</title>
+<meta name="description" content="Lab 1 到 Lab 5 practice 的重點、解答與易錯點，以及 advanced lab 摘要">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=JetBrains+Mono:wght@400;600&family=Noto+Sans+TC:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="assets/style.css">
+<script>try{var t=localStorage.getItem("hdl-theme");if(t&&t!=="system")document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body>
+<header class="top">
+  <div class="top-inner">
+    <div class="brand-row">
+      <a class="brand" href="index.html"><span class="seg" aria-hidden="true"><svg viewBox="0 0 16 28"><polygon points="3,1 13,1 11,3 5,3" class="off"/><polygon points="14,2 14,13 12,12 12,4" class="off"/><polygon points="14,15 14,26 12,24 12,16" class="off"/><polygon points="3,27 13,27 11,25 5,25" class="on"/><polygon points="2,15 4,16 4,24 2,26" class="on"/><polygon points="2,2 4,4 4,12 2,13" class="on"/><polygon points="3,14 5,13 11,13 13,14 11,15 5,15" class="off"/></svg><svg viewBox="0 0 16 28"><polygon points="3,1 13,1 11,3 5,3" class="on"/><polygon points="14,2 14,13 12,12 12,4" class="on"/><polygon points="14,15 14,26 12,24 12,16" class="on"/><polygon points="3,27 13,27 11,25 5,25" class="off"/><polygon points="2,15 4,16 4,24 2,26" class="on"/><polygon points="2,2 4,4 4,12 2,13" class="on"/><polygon points="3,14 5,13 11,13 13,14 11,15 5,15" class="on"/></svg><svg viewBox="0 0 16 28"><polygon points="3,1 13,1 11,3 5,3" class="off"/><polygon points="14,2 14,13 12,12 12,4" class="off"/><polygon points="14,15 14,26 12,24 12,16" class="on"/><polygon points="3,27 13,27 11,25 5,25" class="on"/><polygon points="2,15 4,16 4,24 2,26" class="on"/><polygon points="2,2 4,4 4,12 2,13" class="on"/><polygon points="3,14 5,13 11,13 13,14 11,15 5,15" class="on"/></svg><svg viewBox="0 0 16 28"><polygon points="3,1 13,1 11,3 5,3" class="on"/><polygon points="14,2 14,13 12,12 12,4" class="off"/><polygon points="14,15 14,26 12,24 12,16" class="on"/><polygon points="3,27 13,27 11,25 5,25" class="on"/><polygon points="2,15 4,16 4,24 2,26" class="off"/><polygon points="2,2 4,4 4,12 2,13" class="on"/><polygon points="3,14 5,13 11,13 13,14 11,15 5,15" class="on"/></svg></span><span><span class="brand-name">HDL Exam 1 Prep</span><br><span class="brand-sub">硬體設計與實驗 · 期中上機考 · SystemVerilog</span></span></a>
+      <button type="button" class="theme-btn" id="theme-btn">主題：系統</button>
+    </div>
+    <nav class="pagenav" aria-label="頁面"><a href="index.html">總覽</a><a href="sv.html">SystemVerilog 語法</a><a href="design.html">設計模式</a><a href="fpga.html">FPGA 實作</a><a href="tb.html">模擬與 Testbench</a><a href="labs.html" aria-current="page">Lab 1–5</a><a href="exams.html">歷屆考題</a><a href="mock.html">模擬考</a><a href="cheat.html">考場速查</a></nav>
+  </div>
+</header>
+<main>
+<div class="page-head">
+  <span class="eyebrow">Part 5 · Labs</span>
+  <h1>Lab 1–5 回顧</h1>
+  <p class="lede">考試範圍就是這些 Lab。每個 practice 都附解答，Lab 1、2、5 的解答已經用助教的 testbench 跑過全部 PASS；Lab 3、4 通過編譯。</p>
+</div>
+
+<div class="tabs">
+<div class="tablist"></div>
+
+<section class="tabpanel" id="lab1" data-label="Lab 1 · Gate-level">
+<h2>Lab 1：Gate-level 設計</h2>
+<div class="grid">
+  <div class="card"><h4>學什麼</h4><p>用 <code>and</code>/<code>or</code>/<code>not</code>/<code>nand</code> 等 primitive 組電路；模組實例化（依名稱接）。</p></div>
+  <div class="card"><h4>考試會用到</h4><p>實例化語法、多工器的概念。考試不會限制只能用 gate-level，但要看得懂。</p></div>
+</div>
+<h3>Practice 1：用 2 選 1 MUX 做 function selector</h3>
+<p>C = 0 輸出 A&amp;B，C = 1 輸出 A|B。先用閘做 MUX（<code>y = a·c' + b·c</code>），再實例化。</p>
+<details class="sol"><summary>解答：practice_1.sv（testbench 8/8 Correct）</summary><div class="sol-body">
+<pre class="code" data-lang="sv" data-title="practice_1.sv" data-src="code/labs/practice_1.sv">// Lab 1 Practice 1 — function selector with a gate-level 2-to-1 MUX
+`timescale 1ns/100ps
+module practice_1 (
+    input  wire A,
+    input  wire B,
+    input  wire C,
+    output wire out
+);
+    wire and_ab, or_ab;
+    and g_and (and_ab, A, B);          // primitive: output first, then inputs
+    or  g_or  (or_ab,  A, B);
+    mux u_mux (.a(and_ab), .b(or_ab), .c(C), .y(out));   // C=0 -&gt; AND, C=1 -&gt; OR
+endmodule
+
+module mux (
+    input  wire a,
+    input  wire b,
+    input  wire c,
+    output wire y
+);
+    wire c_n, t0, t1;
+    not g0 (c_n, c);
+    and g1 (t0, a, c_n);    // a &amp; ~c
+    and g2 (t1, b, c);      // b &amp;  c
+    or  g3 (y, t0, t1);
+endmodule
+</pre>
+</div></details>
+
+<h3>Practice 2：Gated D latch</h3>
+<p>G = 1 時 P 跟著 D（透明）；G = 0 時保持。用兩個 NAND 交叉回授做 SR latch，前面再用兩個 NAND 控制 set/reset。</p>
+<details class="sol"><summary>解答：practice_2.sv（testbench All tests passed）</summary><div class="sol-body">
+<pre class="code" data-lang="sv" data-title="practice_2.sv" data-src="code/labs/practice_2.sv">// Lab 1 Practice 2 — gated D latch, gate level only (NAND version)
+`timescale 1ns/100ps
+module practice_2 (
+    input  logic G,
+    input  logic D,
+    output logic P,
+    output logic Pn
+);
+    logic D_n, s_n, r_n;
+    not  g0 (D_n, D);
+    nand g1 (s_n, D,   G);   // set   (active low) when G=1 and D=1
+    nand g2 (r_n, D_n, G);   // reset (active low) when G=1 and D=0
+    nand g3 (P,  s_n, Pn);   // cross-coupled NAND = SR latch
+    nand g4 (Pn, r_n, P);
+endmodule
+</pre>
+</div></details>
+<div class="note"><span class="tag">Latch vs Flip-flop</span>Latch 是「準位觸發」：G = 1 的整段時間都會跟著 D 變。Flip-flop 是「邊緣觸發」：只在 clk 上升那一瞬間取樣。考試的同步電路都用 flip-flop（<code>always_ff @(posedge clk)</code>）；在 <code>always_comb</code> 意外生出的 latch 是 bug。</div>
+</section>
+
+<section class="tabpanel" id="lab2" data-label="Lab 2 · 行為描述">
+<h2>Lab 2：組合與循序的行為描述</h2>
+<p>Lab 2 的兩個 practice 就是考試 A、B 題的縮小版：一個是「組合運算 + 暫存輸出」，一個是「有規則的計數器」。</p>
+
+<h3>Practice 1：8-bit 有號飽和加法器</h3>
+<p>A + B 超過 127 就輸出 127，低於 -128 就輸出 -128，否則正常輸出。輸出要暫存、同步 reset。</p>
+<div class="tbl"><table><thead><tr><th>A</th><th>B</th><th>真正的和</th><th>out</th></tr></thead>
+<tbody class="num"><tr><td>100</td><td>50</td><td>150</td><td>127</td></tr><tr><td>-100</td><td>-50</td><td>-150</td><td>-128</td></tr><tr><td>20</td><td>-30</td><td>-10</td><td>-10</td></tr><tr><td>127</td><td>-128</td><td>-1</td><td>-1</td></tr></tbody></table></div>
+<p>關鍵：用 <strong>9 bits</strong> 的中間變數算和，就不會溢位，再判斷範圍。</p>
+<details class="sol"><summary>解答：lab2_1_practice.sv（PASS 32/32）</summary><div class="sol-body">
+<pre class="code" data-lang="sv" data-title="lab2_1_practice.sv" data-src="code/labs/lab2_1_practice.sv">// Lab 2 Practice 1 — registered 8-bit signed SATURATING adder
+`timescale 1ns/1ps
+module lab2_1_practice (
+    input  logic              clk,
+    input  logic              rst,     // synchronous
+    input  logic signed [7:0] A,
+    input  logic signed [7:0] B,
+    output logic signed [7:0] out
+);
+    logic signed [8:0] sum;            // one extra bit: never overflows
+    logic signed [7:0] sat;
+
+    always_comb begin
+        sum = A + B;                   // 9-bit context -&gt; both operands sign-extended
+        if      (sum &gt;  9&#x27;sd127)  sat = 8&#x27;sd127;
+        else if (sum &lt; -9&#x27;sd128)  sat = -8&#x27;sd128;
+        else                      sat = sum[7:0];
+    end
+
+    always_ff @(posedge clk) begin
+        if (rst) out &lt;= &#x27;0;
+        else     out &lt;= sat;
+    end
+endmodule
+</pre>
+</div></details>
+
+<h3>Practice 2：可載入的倒數計數器</h3>
+<p><code>load = 1</code> 時 out 載入 N；之後每拍減 1，減到 0 的那一拍 <code>done = 1</code>（只有一拍），之後停在 0。</p>
+<figure>
+<div class="fig wave" data-wave='{"signals":[{"name":"clk","wave":"p......."},{"name":"load","wave":"010....."},{"name":"N","wave":"x=x.....","data":["3"]},{"name":"out","wave":"=.====..","data":["0","3","2","1","0"]},{"name":"done","wave":"0....10."}]}'></div>
+</figure>
+<details class="sol"><summary>解答：lab2_2_practice.sv（PASS 32/32）</summary><div class="sol-body">
+<pre class="code" data-lang="sv" data-title="lab2_2_practice.sv" data-src="code/labs/lab2_2_practice.sv">// Lab 2 Practice 2 — loadable down counter with a one-cycle &quot;done&quot; flag
+`timescale 1ns/1ps
+module lab2_2_practice (
+    input  logic       clk,
+    input  logic       rst,    // synchronous
+    input  logic       load,
+    input  logic [7:0] N,
+    output logic [7:0] out,
+    output logic       done
+);
+    always_ff @(posedge clk) begin
+        if (rst) begin
+            out  &lt;= 8&#x27;d0;
+            done &lt;= 1&#x27;b0;
+        end else if (load) begin
+            out  &lt;= N;
+            done &lt;= 1&#x27;b0;
+        end else if (out != 8&#x27;d0) begin
+            out  &lt;= out - 8&#x27;d1;
+            done &lt;= (out == 8&#x27;d1);      // we are about to reach 0
+        end else begin
+            done &lt;= 1&#x27;b0;
+        end
+    end
+endmodule
+</pre>
+</div></details>
+<div class="warn"><span class="tag">易錯</span><code>done</code> 是暫存器，要在「out 從 1 變 0」的同一個邊緣設成 1，所以條件是 <code>out == 1</code>（舊值），不是 <code>out == 0</code>。</div>
+</section>
+
+<section class="tabpanel" id="lab3" data-label="Lab 3 · FSM 與 LED">
+<h2>Lab 3：FSM、除頻、計時</h2>
+<pre class="mermaid">
+stateDiagram-v2
+    direction LR
+    INITIAL --> LOAD: 下一拍
+    LOAD --> PLAY: 16 顆全亮（4 秒）
+    PLAY --> FINAL: end_light
+    FINAL --> INITIAL: 閃 3 次（3 秒）
+</pre>
+<div class="tbl"><table><thead><tr><th>狀態</th><th>LED</th><th>用到的計時</th></tr></thead>
+<tbody>
+<tr><td>INITIAL</td><td>全亮</td><td>—</td></tr>
+<tr><td>LOAD</td><td>從 LD0 開始每 0.25 秒多亮一顆</td><td>timer 25,000,000</td></tr>
+<tr><td>PLAY</td><td>slow：偶數 LED 以 2<sup>28</sup> 閃；fast：奇數 LED 以 2<sup>27</sup> 閃</td><td>clock divider</td></tr>
+<tr><td>FINAL</td><td>全部每 0.5 秒亮/滅，共 3 次</td><td>timer 50,000,000 + 計次</td></tr>
+</tbody></table></div>
+<details class="sol"><summary>解答：lab3_practice.sv</summary><div class="sol-body">
+<pre class="code" data-lang="sv" data-title="lab3_practice.sv" data-src="code/labs/lab3_practice.sv">// Lab 3 Practice — LED controller FSM (INITIAL -&gt; LOAD -&gt; PLAY -&gt; FINAL -&gt; INITIAL)
+`timescale 1ns/1ps
+module lab3_practice (
+    input  logic        clk,
+    input  logic        rst,        // asynchronous, active-high (SW15)
+    input  logic        slow,       // SW0
+    input  logic        fast,       // SW1
+    input  logic        end_light,  // SW2
+    output logic [15:0] led
+);
+    typedef enum logic [1:0] {INITIAL, LOAD, PLAY, FINAL} state_t;
+    state_t state, next_state;
+
+    // ---- timers: one-cycle &quot;tick&quot; pulses (exact time, not powers of two) ----
+    logic tick_q, tick_h;                     // 0.25 s and 0.5 s
+    timer #(.COUNT(25_000_000)) t_q (.clk, .rst, .enable(state == LOAD),  .tick(tick_q));
+    timer #(.COUNT(50_000_000)) t_h (.clk, .rst, .enable(state == FINAL), .tick(tick_h));
+
+    // ---- clock dividers for the flashing in PLAY (2^28 and 2^27) ----
+    logic div_slow, div_fast;
+    clock_divider #(.n(28)) d_s (.clk, .rst, .enable(state == PLAY), .clk_div(div_slow));
+    clock_divider #(.n(27)) d_f (.clk, .rst, .enable(state == PLAY), .clk_div(div_fast));
+
+    logic [4:0] load_cnt;   // how many LEDs are on in LOAD (0..16)
+    logic [2:0] half_cnt;   // number of finished 0.5 s periods in FINAL (0..5)
+
+    // ---- state register (async reset) ----
+    always_ff @(posedge clk or posedge rst) begin
+        if (rst) state &lt;= INITIAL;
+        else     state &lt;= next_state;
+    end
+
+    // ---- next-state logic ----
+    always_comb begin
+        next_state = state;
+        case (state)
+            INITIAL: next_state = LOAD;
+            LOAD:    if (load_cnt == 5&#x27;d16)          next_state = PLAY;
+            PLAY:    if (end_light)                  next_state = FINAL;
+            FINAL:   if (tick_h &amp;&amp; half_cnt == 3&#x27;d5) next_state = INITIAL;
+        endcase
+    end
+
+    // ---- datapath counters ----
+    always_ff @(posedge clk or posedge rst) begin
+        if (rst) begin
+            load_cnt &lt;= &#x27;0; half_cnt &lt;= &#x27;0;
+        end else begin
+            if (state != LOAD)                    load_cnt &lt;= &#x27;0;
+            else if (tick_q &amp;&amp; load_cnt != 5&#x27;d16) load_cnt &lt;= load_cnt + 5&#x27;d1;
+
+            if (state != FINAL) half_cnt &lt;= &#x27;0;
+            else if (tick_h)    half_cnt &lt;= half_cnt + 3&#x27;d1;
+        end
+    end
+
+    // ---- outputs (Moore: depend on state + datapath only) ----
+    always_comb begin
+        case (state)
+            INITIAL: led = 16&#x27;hFFFF;
+            LOAD:    led = ~(16&#x27;hFFFF &lt;&lt; load_cnt);                     // load_cnt LEDs on, from LD0
+            PLAY: begin
+                led = 16&#x27;h0000;
+                if (slow) led = led | (div_slow ? 16&#x27;h5555 : 16&#x27;h0000);  // even LEDs
+                if (fast) led = led | (div_fast ? 16&#x27;hAAAA : 16&#x27;h0000);  // odd LEDs
+            end
+            default: led = half_cnt[0] ? 16&#x27;h0000 : 16&#x27;hFFFF;           // FINAL: on/off x3
+        endcase
+    end
+endmodule
+
+// ---- modules given in the template ----
+module timer #(parameter integer COUNT = 100_000_000) (
+    input logic clk, input logic rst, input logic enable, output logic tick
+);
+    logic [31:0] num;
+    always_ff @(posedge clk or posedge rst) begin
+        if (rst)                   num &lt;= 32&#x27;d0;
+        else if (!enable)          num &lt;= 32&#x27;d0;
+        else if (num == COUNT - 1) num &lt;= 32&#x27;d0;
+        else                       num &lt;= num + 1&#x27;b1;
+    end
+    assign tick = enable &amp;&amp; (num == COUNT - 1);
+endmodule
+
+module clock_divider #(parameter n = 10) (
+    input logic clk, input logic rst, input logic enable, output logic clk_div
+);
+    logic [n-1:0] num;
+    always_ff @(posedge clk or posedge rst) begin
+        if (rst)         num &lt;= &#x27;0;
+        else if (enable) num &lt;= num + 1&#x27;b1;
+        else             num &lt;= &#x27;0;
+    end
+    assign clk_div = num[n-1];
+endmodule
+</pre>
+</div></details>
+<div class="key"><span class="tag">重點</span>
+<ul><li>除頻器（2 的次方）做不出剛好 0.25 秒；要剛好的時間就用 timer 計數到 N-1 產生 1 拍的 tick。</li>
+<li>timer 的 <code>enable</code> 接「目前狀態 == 某狀態」，離開狀態自動歸零，下次進來重新計時。</li>
+<li><code>~(16'hFFFF &lt;&lt; n)</code> 產生最低 n 個 bit 為 1 的遮罩。</li></ul></div>
+
+<h3>Lab 3 advanced 摘要</h3>
+<ul>
+<li><strong>2 位數加法器</strong>：SET1 → SET2 → RESULT 的 FSM，用 BTNC 切換；七段顯示 BCD 數字，正在設定的兩位每 0.5 秒閃爍；結果 0–198 要拆成百十個位。</li>
+<li><strong>跑馬燈</strong>：在四位七段顯示上循環捲動 "nthuEECS2026"，BTNL/BTNR 改方向，BTNC 暫停，SW0 改速度（1 秒或 0.5 秒）。核心是用一個「起始位置」指標，四位數分別顯示字串的第 k、k+1、k+2、k+3 個字。</li>
+</ul>
+</section>
+
+<section class="tabpanel" id="lab4" data-label="Lab 4 · LFSR 遊戲">
+<h2>Lab 4：按鈕、LFSR、方向遊戲</h2>
+<p>INIT 狀態按 BTNR 讓 LFSR 前進（選起始值），按 BTNU 開始。PLAY 狀態的目標方向是 <code>lfsr[1:0]</code>，按對了 LFSR 前進一步，按錯進 FINAL，LED 全亮 3 秒後回 INIT。</p>
+<pre class="mermaid">
+stateDiagram-v2
+    direction LR
+    INIT --> INIT: btnR / lfsr 前進
+    INIT --> PLAY: btnU
+    PLAY --> PLAY: 按對 / lfsr 前進
+    PLAY --> FINAL: 按錯
+    FINAL --> INIT: 3 秒後 / lfsr = 0001
+</pre>
+<details class="sol"><summary>解答：lab4_practice.sv</summary><div class="sol-body">
+<pre class="code" data-lang="sv" data-title="lab4_practice.sv" data-src="code/labs/lab4_practice.sv">// Lab 4 Practice — direction game: 4-bit LFSR + one FSM
+`timescale 1ns/1ps
+module lab4_basic (
+    input  logic        clk,
+    input  logic        rst,     // asynchronous, active-high (BTNC)
+    input  logic        btnL,
+    input  logic        btnR,
+    input  logic        btnD,
+    input  logic        btnU,
+    output logic [15:0] LED
+);
+    typedef enum logic [1:0] {INIT, PLAY, FINAL} state_t;
+    state_t state;
+
+    // ---- every button -&gt; one clean pulse ----
+    logic pL, pR, pD, pU;
+    btn_pulse u_l (.clk, .rst, .btn(btnL), .pulse(pL));
+    btn_pulse u_r (.clk, .rst, .btn(btnR), .pulse(pR));
+    btn_pulse u_d (.clk, .rst, .btn(btnD), .pulse(pD));
+    btn_pulse u_u (.clk, .rst, .btn(btnU), .pulse(pU));
+
+    // ---- 4-bit LFSR: shift left, feedback = lfsr[3] ^ lfsr[0]  (0001 -&gt; 0011 -&gt; 0111 ...) ----
+    logic [3:0] lfsr, lfsr_next;
+    assign lfsr_next = {lfsr[2:0], lfsr[3] ^ lfsr[0]};
+
+    // ---- which button was pressed (Left 00, Right 01, Down 10, Up 11) ----
+    logic       any_p;
+    logic [1:0] code;
+    assign any_p = pL | pR | pD | pU;
+    always_comb begin
+        if      (pL) code = 2&#x27;b00;
+        else if (pR) code = 2&#x27;b01;
+        else if (pD) code = 2&#x27;b10;
+        else         code = 2&#x27;b11;
+    end
+
+    // ---- 3-second timer in FINAL ----
+    parameter ONE_SEC = 27&#x27;d100_000_000;
+    logic [26:0] sec_cnt;
+    logic [1:0]  secs;
+
+    always_ff @(posedge clk or posedge rst) begin
+        if (rst) begin
+            state &lt;= INIT; lfsr &lt;= 4&#x27;b0001; sec_cnt &lt;= &#x27;0; secs &lt;= &#x27;0;
+        end else begin
+            case (state)
+                INIT: begin
+                    if (pR)      lfsr  &lt;= lfsr_next;            // pick the starting state
+                    else if (pU) state &lt;= PLAY;
+                end
+                PLAY: begin
+                    if (any_p) begin
+                        if (code == lfsr[1:0]) lfsr  &lt;= lfsr_next;  // correct -&gt; next round
+                        else                   state &lt;= FINAL;      // wrong -&gt; game over
+                    end
+                    sec_cnt &lt;= &#x27;0; secs &lt;= &#x27;0;
+                end
+                FINAL: begin
+                    if (sec_cnt == ONE_SEC - 1) begin
+                        sec_cnt &lt;= &#x27;0;
+                        if (secs == 2&#x27;d2) begin                // 3 seconds have passed
+                            state &lt;= INIT; lfsr &lt;= 4&#x27;b0001; secs &lt;= &#x27;0;
+                        end else secs &lt;= secs + 2&#x27;d1;
+                    end else sec_cnt &lt;= sec_cnt + 27&#x27;d1;
+                end
+                default: state &lt;= INIT;
+            endcase
+        end
+    end
+
+    always_comb begin
+        case (state)
+            INIT:    LED = {9&#x27;b0, 2&#x27;b00,     1&#x27;b0, lfsr};
+            PLAY:    LED = {9&#x27;b0, lfsr[1:0], 1&#x27;b0, lfsr};
+            default: LED = 16&#x27;hFFFF;
+        endcase
+    end
+endmodule
+
+module btn_pulse #(parameter int DB = 16) (
+    input logic clk, input logic rst, input logic btn, output logic pulse
+);
+    logic [DB-1:0] div;
+    logic [3:0]    samples;
+    logic          stable, stable_d;
+    assign stable = &amp;samples;
+    always_ff @(posedge clk or posedge rst) begin
+        if (rst) begin div &lt;= &#x27;0; samples &lt;= &#x27;0; stable_d &lt;= 1&#x27;b0; end
+        else begin
+            div &lt;= div + 1&#x27;b1;
+            if (div == &#x27;0) samples &lt;= {samples[2:0], btn};
+            stable_d &lt;= stable;
+        end
+    end
+    assign pulse = stable &amp; ~stable_d;
+endmodule
+</pre>
+</div></details>
+<div class="key"><span class="tag">重點</span>
+<ul><li>每個按鈕都要經過 debounce + one-pulse，「按一下」才是一個事件。</li>
+<li>LFSR 永遠不能是 0000（全 0 時 XOR 結果也是 0，會卡死）。</li>
+<li>「按錯」時 LFSR 不前進，所以前進的條件要寫在 <code>code == lfsr[1:0]</code> 的分支裡。</li></ul></div>
+
+<h3>Lab 4 advanced 摘要（七段顯示貪食蛇）</h3>
+<ul>
+<li>PS/2 鍵盤（方向鍵、W/S 音量、Enter、Space）；蛇在 4 位七段顯示器的筆劃上移動。</li>
+<li>每 2<sup>26</sup> 週期走一步：讀輸入 → 查路由表求下一個節點 → 判斷撞牆/咬自己 → 吃到肉就不 pop 尾巴。</li>
+<li>蛇身用 32 格 FIFO + head/tail 指標（見 <a href="design.html#memory">記憶體</a>）。</li>
+<li>LFSR 每拍更新，產生候選的肉位置；落在蛇身上就等下一拍。</li>
+</ul>
+<p class="muted">鍵盤與音效不在期中考常見範圍內，但 FIFO、LFSR、FSM、tick 都是。</p>
+</section>
+
+<section class="tabpanel" id="lab5" data-label="Lab 5 · 記憶體">
+<h2>Lab 5：Random Memory Access（新範圍）</h2>
+<p>8 格 × 4 bits 的 RAM，一個讀埠一個寫埠，write-first，每格有 valid bit，並統計有效格數。完整的圖解與波形在 <a href="design.html#memory">設計模式 → 記憶體</a>。</p>
+<div class="tbl"><table><thead><tr><th>輸入情況</th><th>下一拍</th></tr></thead>
+<tbody>
+<tr><td><code>rst</code></td><td>全部 memory、valid、cnt_valid、dout 清 0（同步）</td></tr>
+<tr><td><code>we</code></td><td>memory[wi] ← din、valid[wi] ← 1；原本 invalid 才 cnt_valid + 1</td></tr>
+<tr><td><code>re</code> 且 valid[ri]</td><td>dout ← memory[ri]</td></tr>
+<tr><td><code>re</code> 且 invalid</td><td>dout ← 0</td></tr>
+<tr><td><code>we &amp;&amp; re &amp;&amp; wi == ri</code></td><td>dout ← din（write-first）</td></tr>
+<tr><td><code>!re</code></td><td>dout ← 0</td></tr>
+</tbody></table></div>
+<details class="sol" open><summary>解答：lab5_practice.sv（助教 testbench 13 組 All Test Cases Passed）</summary><div class="sol-body">
+<pre class="code" data-lang="sv" data-title="lab5_practice.sv" data-src="code/labs/lab5_practice.sv">// Lab 5 Practice — 8 x 4-bit RAM, 1 read + 1 write port, write-first, valid bits
+`timescale 1ns/1ps
+module lab5_practice (
+    input  logic       clk,
+    input  logic       rst,        // synchronous
+    input  logic       we,
+    input  logic [6:0] w_addr,
+    input  logic [3:0] din,
+    input  logic       re,
+    input  logic [6:0] r_addr,
+    output logic [3:0] dout,
+    output logic [3:0] cnt_valid
+);
+    logic [3:0] memory [0:7];
+    logic [7:0] valid;
+    logic [2:0] wi, ri;            // mapped 3-bit indices
+
+    // XOR folding: 7-bit address -&gt; 3-bit index
+    assign wi = w_addr[2:0] ^ w_addr[6:4] ^ w_addr[3:1];
+    assign ri = r_addr[2:0] ^ r_addr[6:4] ^ r_addr[3:1];
+
+    always_ff @(posedge clk) begin
+        if (rst) begin
+            for (int k = 0; k &lt; 8; k++) memory[k] &lt;= 4&#x27;d0;
+            valid     &lt;= 8&#x27;d0;
+            cnt_valid &lt;= 4&#x27;d0;
+            dout      &lt;= 4&#x27;d0;
+        end else begin
+            // ---- write port ----
+            if (we) begin
+                memory[wi] &lt;= din;
+                valid[wi]  &lt;= 1&#x27;b1;
+                if (!valid[wi]) cnt_valid &lt;= cnt_valid + 4&#x27;d1;   // first write only
+            end
+            // ---- read port (registered) ----
+            if (!re)                    dout &lt;= 4&#x27;d0;
+            else if (we &amp;&amp; wi == ri)    dout &lt;= din;             // write-first bypass
+            else if (valid[ri])         dout &lt;= memory[ri];
+            else                        dout &lt;= 4&#x27;d0;
+        end
+    end
+endmodule
+</pre>
+</div></details>
+<div class="warn"><span class="tag">三個常見錯誤</span>
+<ol>
+<li>用原始 7-bit 位址比較讀寫是否衝突（要比對應後的 3-bit index）。</li>
+<li>忘了 write-first 旁路：非阻塞指定下，同一拍讀到的 <code>memory[ri]</code> 還是舊值。</li>
+<li>覆寫已經 valid 的格子也讓 cnt_valid + 1。</li>
+</ol></div>
+<p>考試可能的變形：改成 read-first（同一格同時讀寫回傳舊值）、加上「讀出後清除 valid」、做成 FIFO/stack、統計某種條件的格數。模擬考 B 題就是 stack 版本。</p>
+</section>
+</div>
+
+</main>
+<footer>
+  自學整理用，題目內容為重點摘要。所有解答程式碼都在 Vivado 2022.1 xsim 模擬或合成驗證過；FPGA 題沒有上板實測，行為以題目與助教 demo 為準。
+  原始碼：<a href="https://github.com/weifish0/hdl-midterm-guide">GitHub</a>
+</footer>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js"></script>
+<script src="assets/app.js"></script>
+</body>
+</html>

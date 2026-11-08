@@ -1,0 +1,291 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>考場速查 · HDL Exam 1 Prep</title>
+<meta name="description" content="考前一頁速查：A/B/C 題骨架、有號數規則、七段編碼、腳位與檢查清單">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=JetBrains+Mono:wght@400;600&family=Noto+Sans+TC:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="assets/style.css">
+<script>try{var t=localStorage.getItem("hdl-theme");if(t&&t!=="system")document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body>
+<header class="top">
+  <div class="top-inner">
+    <div class="brand-row">
+      <a class="brand" href="index.html"><span class="seg" aria-hidden="true"><svg viewBox="0 0 16 28"><polygon points="3,1 13,1 11,3 5,3" class="off"/><polygon points="14,2 14,13 12,12 12,4" class="off"/><polygon points="14,15 14,26 12,24 12,16" class="off"/><polygon points="3,27 13,27 11,25 5,25" class="on"/><polygon points="2,15 4,16 4,24 2,26" class="on"/><polygon points="2,2 4,4 4,12 2,13" class="on"/><polygon points="3,14 5,13 11,13 13,14 11,15 5,15" class="off"/></svg><svg viewBox="0 0 16 28"><polygon points="3,1 13,1 11,3 5,3" class="on"/><polygon points="14,2 14,13 12,12 12,4" class="on"/><polygon points="14,15 14,26 12,24 12,16" class="on"/><polygon points="3,27 13,27 11,25 5,25" class="off"/><polygon points="2,15 4,16 4,24 2,26" class="on"/><polygon points="2,2 4,4 4,12 2,13" class="on"/><polygon points="3,14 5,13 11,13 13,14 11,15 5,15" class="on"/></svg><svg viewBox="0 0 16 28"><polygon points="3,1 13,1 11,3 5,3" class="off"/><polygon points="14,2 14,13 12,12 12,4" class="off"/><polygon points="14,15 14,26 12,24 12,16" class="on"/><polygon points="3,27 13,27 11,25 5,25" class="on"/><polygon points="2,15 4,16 4,24 2,26" class="on"/><polygon points="2,2 4,4 4,12 2,13" class="on"/><polygon points="3,14 5,13 11,13 13,14 11,15 5,15" class="on"/></svg><svg viewBox="0 0 16 28"><polygon points="3,1 13,1 11,3 5,3" class="on"/><polygon points="14,2 14,13 12,12 12,4" class="off"/><polygon points="14,15 14,26 12,24 12,16" class="on"/><polygon points="3,27 13,27 11,25 5,25" class="on"/><polygon points="2,15 4,16 4,24 2,26" class="off"/><polygon points="2,2 4,4 4,12 2,13" class="on"/><polygon points="3,14 5,13 11,13 13,14 11,15 5,15" class="on"/></svg></span><span><span class="brand-name">HDL Exam 1 Prep</span><br><span class="brand-sub">硬體設計與實驗 · 期中上機考 · SystemVerilog</span></span></a>
+      <button type="button" class="theme-btn" id="theme-btn">主題：系統</button>
+    </div>
+    <nav class="pagenav" aria-label="頁面"><a href="index.html">總覽</a><a href="sv.html">SystemVerilog 語法</a><a href="design.html">設計模式</a><a href="fpga.html">FPGA 實作</a><a href="tb.html">模擬與 Testbench</a><a href="labs.html">Lab 1–5</a><a href="exams.html">歷屆考題</a><a href="mock.html">模擬考</a><a href="cheat.html" aria-current="page">考場速查</a></nav>
+  </div>
+</header>
+<main>
+<div class="page-head">
+  <span class="eyebrow">Part 8 · 考前一天</span>
+  <h1>考場速查</h1>
+  <p class="lede">考前只看這頁。每段都是可以直接複製的骨架。</p>
+</div>
+
+<div class="tabs">
+<div class="tablist"></div>
+
+<section class="tabpanel" id="cs-ab" data-label="A / B 骨架">
+<h2>A 題骨架</h2>
+<pre class="code" data-title="exam1_A 骨架">// 學號 姓名
+`timescale 1ns/1ps
+module exam1_A (
+    input  logic               clk, rst,
+    input  logic signed [7:0]  A, B,
+    input  logic        [1:0]  ctrl,
+    output logic signed [15:0] out
+);
+    logic signed [15:0] result;
+    always_comb begin
+        case (ctrl)
+            2'b00:   result = A * B;
+            2'b01:   result = {A & B, A ^ B};
+            2'b11:   result = (A + B) <<< 2;
+            default: result = (A < B) ? -16'sd1 : 16'sd1;
+        endcase
+    end
+    always_ff @(posedge clk) begin
+        if (rst) out <= '0;
+        else     out <= result;
+    end
+endmodule</pre>
+
+<h2>B 題骨架（規則計數器）</h2>
+<pre class="code" data-title="exam1_B 骨架">module exam1_B (input logic clk, rst, output logic [15:0] out);
+    localparam logic [16:0] MAX = 17'd65176;      // 題目給的上限
+    logic        up;
+    logic [15:0] i, prev;
+    logic [16:0] nxt;                 // 多 1 bit 看溢位 / 負數
+
+    always_comb begin
+        if (up) nxt = /* 上數規則 */ out + i;
+        else    nxt = (out < i) ? '0 : out - i;   // 先比較，避免無號數變超大
+    end
+
+    always_ff @(posedge clk) begin
+        if (rst) begin out <= '0; prev <= '0; i <= 16'd1; up <= 1'b1; end
+        else begin
+            prev <= out;
+            out  <= nxt[15:0];
+            if (up && nxt >= MAX)      begin up <= 1'b0; i <= 16'd1; end
+            else if (!up && nxt == 0)  begin up <= 1'b1; i <= 16'd1; end
+            else                        i <= i + 16'd1;
+        end
+    end
+endmodule</pre>
+</section>
+
+<section class="tabpanel" id="cs-c" data-label="C 骨架">
+<h2>C 題骨架</h2>
+<pre class="code" data-title="exam1_C 骨架">module exam1_C (
+    input  logic clk, rst, en, set, up, down,
+    input  logic [15:0] sw,
+    output logic [3:0]  DIGIT,
+    output logic [6:0]  DISPLAY,
+    output logic [15:0] led
+);
+    // 1) 按鈕 -> 1 週期脈衝
+    logic en_p, set_p, up_p, down_p;
+    btn_pulse u0 (.clk, .rst, .btn(en),  .pulse(en_p));
+    btn_pulse u1 (.clk, .rst, .btn(set), .pulse(set_p));
+    btn_pulse u2 (.clk, .rst, .btn(up),  .pulse(up_p));
+    btn_pulse u3 (.clk, .rst, .btn(down),.pulse(down_p));
+
+    // 2) 狀態
+    typedef enum logic [1:0] {S_RESET, S_START, S_PAUSE, S_FINISH} state_t;
+    state_t state;
+
+    // 3) tick：同一個計數器
+    logic [25:0] cnt;
+    logic t24, t25, t26;
+    always_ff @(posedge clk) cnt <= rst ? '0 : cnt + 1'b1;
+    assign t24 = (cnt[23:0] == '1);
+    assign t25 = (cnt[24:0] == '1);
+    assign t26 = (cnt == '1);
+
+    // 4) 資料暫存器 + 狀態轉移：一個 always_ff
+    logic [3:0] pos;  logic [3:0] score;
+    always_ff @(posedge clk) begin
+        if (rst) begin
+            state <= S_RESET; pos <= 4'd15; score <= '0;
+        end else case (state)
+            S_RESET: if (en_p) state <= S_START;
+            S_START: begin
+                if (en_p) state <= S_PAUSE;
+                if (t25)  pos <= pos - 4'd1;
+            end
+            S_PAUSE: if (en_p) state <= S_START;
+            default: ;
+        endcase
+    end
+
+    // 5) 輸出
+    assign led = 16'b1 << pos;
+    seven_seg u_seg (.clk, .c3(5'd0), .c2(5'd0), .c1(5'd0), .c0({1'b0, score}), .DIGIT, .DISPLAY);
+endmodule
+// 6) 貼上 btn_pulse 與 seven_seg</pre>
+<pre class="code" data-lang="sv" data-title="helpers.sv（貼在檔案最後）" data-src="code/common/helpers.sv">// ===================================================================
+//  Reusable helper modules for FPGA problems (Basys3, 100 MHz clock)
+//  Paste these at the bottom of your exam file: the exam requires
+//  ONE file that contains every module you use.
+// ===================================================================
+
+// -------------------------------------------------------------------
+// btn_pulse: debounce + one-pulse in ONE clock domain (100 MHz).
+//   * The button is sampled once every 2^DB clock cycles
+//     (DB = 16 -&gt; every 0.65 ms), shifted into a 4-bit register.
+//   * &quot;stable&quot; = the last 4 samples were all 1.
+//   * pulse   = rising edge of &quot;stable&quot;, exactly ONE 100 MHz cycle wide.
+// -------------------------------------------------------------------
+module btn_pulse #(parameter int DB = 16) (
+    input  logic clk,
+    input  logic rst,
+    input  logic btn,
+    output logic pulse
+);
+    logic [DB-1:0] div;
+    logic [3:0]    samples;
+    logic          stable, stable_d;
+
+    assign stable = &amp;samples;
+
+    always_ff @(posedge clk) begin
+        if (rst) begin
+            div &lt;= &#x27;0; samples &lt;= &#x27;0; stable_d &lt;= 1&#x27;b0;
+        end else begin
+            div &lt;= div + 1&#x27;b1;
+            if (div == &#x27;0) samples &lt;= {samples[2:0], btn};
+            stable_d &lt;= stable;
+        end
+    end
+
+    assign pulse = stable &amp; ~stable_d;
+endmodule
+
+// -------------------------------------------------------------------
+// seven_seg: 4-digit multiplexed display driver.
+//   * c3 is the LEFTMOST digit, c0 the RIGHTMOST.
+//   * each cN is a 5-bit character code (see the localparams below).
+//   * DIGIT and DISPLAY are ACTIVE-LOW on Basys3.
+//   * DISPLAY = {g, f, e, d, c, b, a}
+// -------------------------------------------------------------------
+module seven_seg (
+    input  logic       clk,
+    input  logic [4:0] c3, c2, c1, c0,
+    output logic [3:0] DIGIT,
+    output logic [6:0] DISPLAY
+);
+    // character codes: 0..9 are the digits themselves
+    localparam logic [4:0] CH_A = 5&#x27;d10, CH_E = 5&#x27;d14, CH_P = 5&#x27;d16,
+                           CH_R = 5&#x27;d17, CH_U = 5&#x27;d18, CH_DASH = 5&#x27;d19,
+                           CH_BLANK = 5&#x27;d31;
+    // &#x27;S&#x27; looks like 5 and &#x27;I&#x27; looks like 1 -&gt; just use 5 and 1
+
+    logic [16:0] refresh = &#x27;0;     // 2^15 cycles per digit (~0.33 ms); &#x27;= 0&#x27; sets the FPGA power-up value
+    logic [4:0]  ch;
+
+    always_ff @(posedge clk) refresh &lt;= refresh + 1&#x27;b1;
+
+    always_comb begin
+        case (refresh[16:15])
+            2&#x27;d0: begin DIGIT = 4&#x27;b1110; ch = c0; end
+            2&#x27;d1: begin DIGIT = 4&#x27;b1101; ch = c1; end
+            2&#x27;d2: begin DIGIT = 4&#x27;b1011; ch = c2; end
+            default: begin DIGIT = 4&#x27;b0111; ch = c3; end
+        endcase
+    end
+
+    always_comb begin
+        case (ch)
+            5&#x27;d0: DISPLAY = 7&#x27;b1000000;
+            5&#x27;d1: DISPLAY = 7&#x27;b1111001;
+            5&#x27;d2: DISPLAY = 7&#x27;b0100100;
+            5&#x27;d3: DISPLAY = 7&#x27;b0110000;
+            5&#x27;d4: DISPLAY = 7&#x27;b0011001;
+            5&#x27;d5: DISPLAY = 7&#x27;b0010010;
+            5&#x27;d6: DISPLAY = 7&#x27;b0000010;
+            5&#x27;d7: DISPLAY = 7&#x27;b1111000;
+            5&#x27;d8: DISPLAY = 7&#x27;b0000000;
+            5&#x27;d9: DISPLAY = 7&#x27;b0010000;
+            CH_A: DISPLAY = 7&#x27;b0001000;
+            CH_E: DISPLAY = 7&#x27;b0000110;
+            CH_P: DISPLAY = 7&#x27;b0001100;
+            CH_R: DISPLAY = 7&#x27;b0101111;   // lowercase r
+            CH_U: DISPLAY = 7&#x27;b1000001;
+            CH_DASH: DISPLAY = 7&#x27;b0111111;
+            default: DISPLAY = 7&#x27;b1111111; // blank
+        endcase
+    end
+endmodule
+</pre>
+</section>
+
+<section class="tabpanel" id="cs-rules" data-label="規則速記">
+<h2>一定要記得的規則</h2>
+<div class="grid">
+<div class="card"><h4>有號數</h4><p>整個式子都 signed 才做有號運算。常數用 <code>16'sd3</code>；part-select 和串接是無號；需要時 <code>$signed()</code>。右移負數用 <code>&gt;&gt;&gt;</code>。</p></div>
+<div class="card"><h4>寬度</h4><p>運算前先擴到整個式子最寬的寬度。加法多 1 bit、乘法寬度相加。寬給窄直接砍高位。</p></div>
+<div class="card"><h4>always</h4><p><code>always_comb</code> 用 <code>=</code>，先給預設值、case 加 default。<code>always_ff</code> 用 <code>&lt;=</code>。一個訊號只在一個 always 裡指定。</p></div>
+<div class="card"><h4>reset</h4><p>同步：<code>@(posedge clk)</code>；非同步：<code>@(posedge clk or posedge rst)</code>。考試 A/B/C 都寫同步。</p></div>
+<div class="card"><h4>時間</h4><p>2<sup>24</sup> ≈ 0.17 s、2<sup>25</sup> ≈ 0.34 s、2<sup>26</sup> ≈ 0.67 s、2<sup>27</sup> ≈ 1.34 s。剛好 1 秒 = 100,000,000 週期（27 bits）。</p></div>
+<div class="card"><h4>不用 / %</h4><p><code>x % 2^k = x[k-1:0]</code>、<code>x / 2^k = x &gt;&gt; k</code>、<code>x*3 = (x&lt;&lt;1)+x</code>、奇偶看 <code>x[0]</code>。</p></div>
+<div class="card"><h4>LED 方向</h4><p>led[15] 在最左。往左 = index + 1。4-bit 位置加減自動環繞。</p></div>
+<div class="card"><h4>七段</h4><p>DIGIT、DISPLAY 都是 0 = 亮。DIGIT 1110 = 最右位。DISPLAY = {g,f,e,d,c,b,a}。</p></div>
+</div>
+
+<h2>七段編碼表（{g,f,e,d,c,b,a}，0 = 亮）</h2>
+<div class="tbl"><table>
+<thead><tr><th>字</th><th>DISPLAY</th><th>字</th><th>DISPLAY</th><th>字</th><th>DISPLAY</th></tr></thead>
+<tbody class="num">
+<tr><td>0</td><td><code>1000000</code></td><td>6</td><td><code>0000010</code></td><td>E</td><td><code>0000110</code></td></tr>
+<tr><td>1 / I</td><td><code>1111001</code></td><td>7</td><td><code>1111000</code></td><td>P</td><td><code>0001100</code></td></tr>
+<tr><td>2</td><td><code>0100100</code></td><td>8</td><td><code>0000000</code></td><td>r</td><td><code>0101111</code></td></tr>
+<tr><td>3</td><td><code>0110000</code></td><td>9</td><td><code>0010000</code></td><td>U</td><td><code>1000001</code></td></tr>
+<tr><td>4</td><td><code>0011001</code></td><td>A</td><td><code>0001000</code></td><td>-</td><td><code>0111111</code></td></tr>
+<tr><td>5 / S</td><td><code>0010010</code></td><td>b</td><td><code>0000011</code></td><td>空白</td><td><code>1111111</code></td></tr>
+</tbody></table></div>
+
+<h2>按鈕腳位（2022、2023 範本）</h2>
+<div class="tbl"><table><thead><tr><th>訊號</th><th>按鈕</th><th>腳位</th></tr></thead><tbody>
+<tr><td>rst</td><td>BTNC</td><td>U18</td></tr><tr><td>en</td><td>BTNR</td><td>T17</td></tr>
+<tr><td>set</td><td>BTNL</td><td>W19</td></tr><tr><td>up</td><td>BTNU</td><td>T18</td></tr><tr><td>down</td><td>BTND</td><td>U17</td></tr>
+</tbody></table></div>
+</section>
+
+<section class="tabpanel" id="cs-check" data-label="交卷檢查">
+<h2>交卷前</h2>
+<ul class="check">
+  <li><input type="checkbox" id="k1"><label for="k1">第一行 <code>// 學號 姓名</code>（三個檔案都要）</label></li>
+  <li><input type="checkbox" id="k2"><label for="k2">模組名稱、port 名稱、寬度都沒改</label></li>
+  <li><input type="checkbox" id="k3"><label for="k3">A/B：PASS 訊息出現；模擬時間夠長</label></li>
+  <li><input type="checkbox" id="k4"><label for="k4">A/B：輸出晚一拍、同步 reset 輸出 0</label></li>
+  <li><input type="checkbox" id="k5"><label for="k5">B：沒有 lookup table、沒有違規的 / 或 %</label></li>
+  <li><input type="checkbox" id="k6"><label for="k6">C：Generate Bitstream 成功、沒改 XDC</label></li>
+  <li><input type="checkbox" id="k7"><label for="k7">C：子模組都在同一檔案、沒有重複定義</label></li>
+  <li><input type="checkbox" id="k8"><label for="k8">OJ 顯示上傳成功</label></li>
+</ul>
+<button type="button" class="theme-btn" id="clear-checks">清除勾選</button>
+<script>
+document.getElementById("clear-checks").addEventListener("click", function () {
+  document.querySelectorAll(".check input").forEach(function (c) {
+    c.checked = false; try { localStorage.removeItem("hdl-chk-" + c.id); } catch (e) {}
+  });
+});
+</script>
+</section>
+</div>
+
+</main>
+<footer>
+  自學整理用，題目內容為重點摘要。所有解答程式碼都在 Vivado 2022.1 xsim 模擬或合成驗證過；FPGA 題沒有上板實測，行為以題目與助教 demo 為準。
+  原始碼：<a href="https://github.com/weifish0/hdl-midterm-guide">GitHub</a>
+</footer>
+<script src="assets/app.js"></script>
+</body>
+</html>
