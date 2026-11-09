@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=JetBrains+Mono:wght@400;600&family=Noto+Sans+TC:wght@400;500;700&display=swap">
-<link rel="stylesheet" href="assets/style.css">
+<link rel="stylesheet" href="assets/style.css?v=adac5d71">
 <script>try{var t=localStorage.getItem("hdl-theme");if(t&&t!=="system")document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
 </head>
 <body>
@@ -33,6 +33,7 @@
 
 <section class="tabpanel" id="mock-a" data-label="A · ALU">
 <h2>A. [30%] 同步 ALU（Verilog 模擬）</h2>
+<div class="kit"><span class="tag">自製考試檔案</span><div class="kit-files"><a href="code/kits/mock/A/mock_A.sv" target="_blank" rel="noopener"><code>mock_A.sv</code><span>範本</span></a><a href="code/kits/mock/A/mock_A_tb.sv" target="_blank" rel="noopener"><code>mock_A_tb.sv</code><span>testbench</span></a><a href="code/kits/mock/A/pattern_mock_A.dat" target="_blank" rel="noopener"><code>pattern_mock_A.dat</code><span>pattern</span></a></div><p class="kit-meta"><a class="kit-zip" href="kits/mock_A.zip">下載全部（.zip）</a></p><p class="kit-note">模擬考的考試檔案：範本、testbench、pattern、XDC 都是自製。 把範本加進 design sources，testbench 和 .dat 加進 <strong>simulation</strong> sources，testbench 設為 top 後跑 Behavioral Simulation。</p></div>
 <ol>
 <li>設計一個同步 ALU，輸出前要有一級 flip-flop（晚一拍輸出）。</li>
 <li>在 clk 正緣改變，<strong>同步</strong> reset，reset 時輸出 0。</li>
@@ -62,12 +63,12 @@ module mock_A (
 );
     // your design here
 endmodule</pre>
-<p>下載：<a href="code/mock/mock_A_tb.sv">mock_A_tb.sv</a> · <a href="code/mock/pattern_mock_A.dat">pattern_mock_A.dat</a>（兩個都加到 simulation sources）</p>
 <div class="note"><span class="tag">提示</span>|A − B| 最大 255，用 8 bits 有號裝不下；A−B 本身需要 9 bits。</div>
 </section>
 
 <section class="tabpanel" id="mock-b" data-label="B · 記憶體堆疊">
 <h2>B. [30%] 8 格堆疊（Verilog 模擬）</h2>
+<div class="kit"><span class="tag">自製考試檔案</span><div class="kit-files"><a href="code/kits/mock/B/mock_B.sv" target="_blank" rel="noopener"><code>mock_B.sv</code><span>範本</span></a><a href="code/kits/mock/B/mock_B_tb.sv" target="_blank" rel="noopener"><code>mock_B_tb.sv</code><span>testbench</span></a><a href="code/kits/mock/B/pattern_mock_B.dat" target="_blank" rel="noopener"><code>pattern_mock_B.dat</code><span>pattern</span></a></div><p class="kit-meta"><a class="kit-zip" href="kits/mock_B.zip">下載全部（.zip）</a></p><p class="kit-note">模擬考的考試檔案：範本、testbench、pattern、XDC 都是自製。 把範本加進 design sources，testbench 和 .dat 加進 <strong>simulation</strong> sources，testbench 設為 top 後跑 Behavioral Simulation。</p></div>
 <p>用記憶體陣列 <code>logic [7:0] mem [0:7]</code> 實作一個 stack（後進先出）。所有輸出都是暫存器（在 clk 正緣更新），同步 reset 清空所有東西。</p>
 <div class="tbl"><table><thead><tr><th>訊號</th><th>I/O</th><th>說明</th></tr></thead><tbody>
 <tr><td><code>valid</code></td><td>input</td><td>這一拍是否有指令</td></tr>
@@ -98,12 +99,13 @@ module mock_B (
     logic [7:0] mem [0:7];
     // your design here
 endmodule</pre>
-<p>下載：<a href="code/mock/mock_B_tb.sv">mock_B_tb.sv</a> · <a href="code/mock/pattern_mock_B.dat">pattern_mock_B.dat</a> · 產生 pattern 的 <a href="code/mock/gen_patterns.py">gen_patterns.py</a></p>
+<p class="muted">產生 pattern 的程式：<a href="code/mock/gen_patterns.py">gen_patterns.py</a></p>
 <div class="note"><span class="tag">提示</span>cnt 剛好可以當堆疊指標：下一筆存到 <code>mem[cnt]</code>，最上面那筆是 <code>mem[cnt-1]</code>。SUM 可以用 <code>always_comb</code> 裡的 for 迴圈。</div>
 </section>
 
 <section class="tabpanel" id="mock-c" data-label="C · 打地鼠">
 <h2>C. [40%] LED 打地鼠（FPGA 實作）</h2>
+<div class="kit"><span class="tag">自製考試檔案</span><div class="kit-files"><a href="code/kits/mock/C/mock_C.sv" target="_blank" rel="noopener"><code>mock_C.sv</code><span>範本</span></a><a href="code/kits/mock/C/mock_C.xdc" target="_blank" rel="noopener"><code>mock_C.xdc</code><span>constraint</span></a></div><p class="kit-meta"><a class="kit-zip" href="kits/mock_C.zip">下載全部（.zip）</a></p><p class="kit-note">模擬考的考試檔案：範本、testbench、pattern、XDC 都是自製。 把範本加進 design sources、XDC 加進 constraints，寫完後 Generate Bitstream。</p></div>
 <div class="tbl"><table><thead><tr><th>訊號</th><th>腳位</th><th>說明</th></tr></thead><tbody>
 <tr><td><code>clk</code></td><td>W5</td><td>100 MHz</td></tr>
 <tr><td><code>rst</code></td><td>BTNC</td><td>同步 reset，回到 IDLE</td></tr>
@@ -725,6 +727,6 @@ always_ff @(posedge clk) if (rst)  pos <= 0;</pre>
   自學整理用，題目內容為重點摘要。所有解答程式碼都在 Vivado 2022.1 xsim 模擬或合成驗證過；FPGA 題沒有上板實測，行為以題目與助教 demo 為準。
   原始碼：<a href="https://github.com/weifish0/hdl-midterm-guide">GitHub</a>
 </footer>
-<script src="assets/app.js"></script>
+<script src="assets/app.js?v=adac5d71"></script>
 </body>
 </html>

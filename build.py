@@ -5,10 +5,12 @@ Directives inside a page:
   <!--#code exam2023/exam1_A.sv | optional title-->            inline a file from code/
 Run:  python build.py
 """
+import hashlib
 import html
 import json
 import re
 import shutil
+import zipfile
 from pathlib import Path
 
 ROOT = Path(__file__).parent
@@ -60,6 +62,48 @@ def code_block(m):
             f'data-src="code/{html.escape(path)}">{html.escape(text)}</pre>')
 
 
+KIT_NOTES = {
+    "2023": "老師當年發的檔案。testbench 從 Verilog 轉成 SystemVerilog（只把 reg / wire 改成 logic），pattern 與 XDC 原封不動。",
+    "2022": "老師的檔案沒有留下來，這份是依題目自製：testbench 仿 2023 官方格式，pattern 由題目規則的參考模型產生，XDC 取自 2023 版（I/O 相同）。",
+    "2021": "老師的檔案沒有留下來，這份是依題目自製：testbench 仿 2023 官方格式，pattern 由題目規則的參考模型產生，XDC 由 2023 版改成這年的 port 名稱。",
+    "mock": "模擬考的考試檔案：範本、testbench、pattern、XDC 都是自製。",
+}
+ROLE = [("_tb.sv", "testbench"), (".dat", "pattern"), (".xdc", "constraint"), (".sv", "範本")]
+
+
+def kit_block(m):
+    year, prob = m.group(1).split()
+    def role(f):
+        return next(label for suffix, label in ROLE if f.name.endswith(suffix))
+    order = ["範本", "testbench", "pattern", "constraint"]
+    files = sorted((CODE / "kits" / year / prob).iterdir(), key=lambda f: order.index(role(f)))
+    items = "".join(
+        f'<a href="code/kits/{year}/{prob}/{f.name}" target="_blank" rel="noopener"><code>{f.name}</code><span>{role(f)}</span></a>'
+        for f in files)
+    extra = ""
+    if year == "2023":
+        extra = ' · <a href="kits/exam2023_original.zip">老師原始 Verilog 檔（.zip）</a>'
+    sim = prob in ("A", "B")
+    how = ("把範本加進 design sources，testbench 和 .dat 加進 <strong>simulation</strong> sources，testbench 設為 top 後跑 Behavioral Simulation。"
+           if sim else "把範本加進 design sources、XDC 加進 constraints，寫完後 Generate Bitstream。")
+    label = "官方檔案（SV 版）" if year == "2023" else "自製考試檔案"
+    return (f'<div class="kit"><span class="tag">{label}</span>'
+            f'<div class="kit-files">{items}</div>'
+            f'<p class="kit-meta"><a class="kit-zip" href="kits/{"exam" if year != "mock" else ""}{year}_{prob}.zip">下載全部（.zip）</a>{extra}</p>'
+            f'<p class="kit-note">{KIT_NOTES[year]} {how}</p></div>')
+
+
+def make_zips():
+    out = OUT / "kits"
+    out.mkdir()
+    for ydir in sorted((CODE / "kits").iterdir()):
+        for pdir in sorted(ydir.iterdir()):
+            name = (f"exam{ydir.name}_{pdir.name}" if ydir.name != "mock" else f"mock_{pdir.name}")
+            with zipfile.ZipFile(out / f"{name}.zip", "w", zipfile.ZIP_DEFLATED) as z:
+                for f in sorted(pdir.iterdir()):
+                    z.write(f, f"{name}/{f.name}")
+
+
 LAYOUT = """<!doctype html>
 <html lang="zh-Hant">
 <head>
@@ -70,7 +114,7 @@ LAYOUT = """<!doctype html>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=JetBrains+Mono:wght@400;600&family=Noto+Sans+TC:wght@400;500;700&display=swap">
-<link rel="stylesheet" href="assets/style.css">
+<link rel="stylesheet" href="assets/style.css?v={ver}">
 <script>try{{var t=localStorage.getItem("hdl-theme");if(t&&t!=="system")document.documentElement.setAttribute("data-theme",t)}}catch(e){{}}</script>
 </head>
 <body>
@@ -90,7 +134,7 @@ LAYOUT = """<!doctype html>
   自學整理用，題目內容為重點摘要。所有解答程式碼都在 Vivado 2022.1 xsim 模擬或合成驗證過；FPGA 題沒有上板實測，行為以題目與助教 demo 為準。
   原始碼：<a href="https://github.com/weifish0/hdl-midterm-guide">GitHub</a>
 </footer>
-{mermaid}<script src="assets/app.js"></script>
+{mermaid}<script src="assets/app.js?v={ver}"></script>
 </body>
 </html>
 """
@@ -103,20 +147,23 @@ def build():
     shutil.copytree(SRC / "assets", OUT / "assets")
     shutil.copytree(CODE, OUT / "code")
     (OUT / ".nojekyll").write_text("")
+    make_zips()
     logo = seg_logo("LAB5")
+    ver = hashlib.sha1((SRC / "assets/style.css").read_bytes() + (SRC / "assets/app.js").read_bytes()).hexdigest()[:8]
     for page in sorted((SRC / "pages").glob("*.html")):
         raw = page.read_text(encoding="utf-8")
         m = re.match(r"<!--meta (.*?)-->\s*", raw, re.S)
         meta = json.loads(m.group(1))
         body = raw[m.end():]
         body = re.sub(r"<!--#code (.*?)-->", code_block, body)
+        body = re.sub(r"<!--#kit (.*?)-->", kit_block, body)
         nav = "".join(
             f'<a href="{key}.html"{" aria-current=\"page\"" if key == meta["nav"] else ""}>{label}</a>'
             for key, label in NAV)
         mer = ('<script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js"></script>\n'
                if meta.get("mermaid") else "")
         out = LAYOUT.format(title=html.escape(meta["title"]), desc=html.escape(meta.get("desc", "")),
-                            logo=logo, nav=nav, body=body, mermaid=mer)
+                            logo=logo, nav=nav, body=body, mermaid=mer, ver=ver)
         (OUT / page.name).write_text(out, encoding="utf-8")
         print("built", page.name)
 

@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=JetBrains+Mono:wght@400;600&family=Noto+Sans+TC:wght@400;500;700&display=swap">
-<link rel="stylesheet" href="assets/style.css">
+<link rel="stylesheet" href="assets/style.css?v=adac5d71">
 <script>try{var t=localStorage.getItem("hdl-theme");if(t&&t!=="system")document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
 </head>
 <body>
@@ -25,7 +25,7 @@
 <div class="page-head">
   <span class="eyebrow">Part 6 · 考古題</span>
   <h1>歷屆考題詳解</h1>
-  <p class="lede">九題全部改寫成 SystemVerilog。A、B 題都通過驗證：2023 用助教原本的 testbench 與 pattern（28/28、30/30），2021、2022 用依題目規則寫的參考模型產生 800 組 pattern 驗證。C 題都在 Vivado 合成成功，並用縮短時間的模擬檢查過題目的範例情境。</p>
+  <p class="lede">九題全部改寫成 SystemVerilog。每題上方是考試會發的檔案（範本、testbench、pattern、XDC），下載後自己先寫。A、B 題都通過驗證：2023 用助教原本的 testbench 與 pattern（28/28、30/30），2021、2022 用依題目規則寫的參考模型產生 800 組 pattern 驗證。C 題都在 Vivado 合成成功，並用縮短時間的模擬檢查過題目的範例情境。</p>
 </div>
 <div class="key"><span class="tag">C 題直接用考試提供的模組</span>老師說考試會提供 <code>clock_divider</code>、<code>debounce</code>、<code>onepulse</code>、<code>SevenSegment</code> 和 XDC。三年的 C 題解答都只用這些模組：按鈕走 debounce → one_pulse，速度用 clock_divider + one_pulse 變成 tick，顯示交給 SevenSegment（只在它的 case 表裡加題目需要的字母）。</div>
 <div class="note"><span class="tag">建議用法</span>先只看「題意」，自己寫 20–40 分鐘，再看「思路」，最後才看解答。直接看解答的效果很差。</div>
@@ -36,6 +36,7 @@
 <!-- ======================================================================= -->
 <section class="tabpanel" id="y2023" data-label="2023（112 學年）">
 <h2 id="y2023-A">A · 同步 ALU（30%）</h2>
+<div class="kit"><span class="tag">官方檔案（SV 版）</span><div class="kit-files"><a href="code/kits/2023/A/exam1_A.sv" target="_blank" rel="noopener"><code>exam1_A.sv</code><span>範本</span></a><a href="code/kits/2023/A/exam1_A_tb.sv" target="_blank" rel="noopener"><code>exam1_A_tb.sv</code><span>testbench</span></a><a href="code/kits/2023/A/pattern_A.dat" target="_blank" rel="noopener"><code>pattern_A.dat</code><span>pattern</span></a></div><p class="kit-meta"><a class="kit-zip" href="kits/exam2023_A.zip">下載全部（.zip）</a> · <a href="kits/exam2023_original.zip">老師原始 Verilog 檔（.zip）</a></p><p class="kit-note">老師當年發的檔案。testbench 從 Verilog 轉成 SystemVerilog（只把 reg / wire 改成 logic），pattern 與 XDC 原封不動。 把範本加進 design sources，testbench 和 .dat 加進 <strong>simulation</strong> sources，testbench 設為 top 後跑 Behavioral Simulation。</p></div>
 <h3>題意</h3>
 <p>輸入 <code>A</code>、<code>B</code> 為 8-bit 有號數，<code>ctrl</code> 2 bits，輸出 <code>out</code> 16-bit 有號，前面加一級 flip-flop（晚一拍），同步 reset 時輸出 0。</p>
 <div class="tbl"><table><thead><tr><th>ctrl</th><th>功能</th><th>例子</th></tr></thead>
@@ -91,6 +92,7 @@ endmodule
 <div class="warn"><span class="tag">易錯</span>A 沒宣告 signed 時 <code>A &gt;&gt;&gt; 2</code> 等於 <code>A &gt;&gt; 2</code>（補 0），負數全錯。<code>{A &amp; B, A ^ B}</code> 是串接，不要寫成 <code>(A &amp; B) &lt;&lt; 8 | ...</code> 還搞錯寬度。</div>
 
 <h2 id="y2023-B">B · Hamming 碼更正 + 運算（30%）</h2>
+<div class="kit"><span class="tag">官方檔案（SV 版）</span><div class="kit-files"><a href="code/kits/2023/B/exam1_B.sv" target="_blank" rel="noopener"><code>exam1_B.sv</code><span>範本</span></a><a href="code/kits/2023/B/exam1_B_tb.sv" target="_blank" rel="noopener"><code>exam1_B_tb.sv</code><span>testbench</span></a><a href="code/kits/2023/B/pattern_B.dat" target="_blank" rel="noopener"><code>pattern_B.dat</code><span>pattern</span></a></div><p class="kit-meta"><a class="kit-zip" href="kits/exam2023_B.zip">下載全部（.zip）</a> · <a href="kits/exam2023_original.zip">老師原始 Verilog 檔（.zip）</a></p><p class="kit-note">老師當年發的檔案。testbench 從 Verilog 轉成 SystemVerilog（只把 reg / wire 改成 logic），pattern 與 XDC 原封不動。 把範本加進 design sources，testbench 和 .dat 加進 <strong>simulation</strong> sources，testbench 設為 top 後跑 Behavioral Simulation。</p></div>
 <h3>題意</h3>
 <p>12-bit 輸入 <code>data</code>（B12…B1，B1 = data[0]），其中 B1、B2、B4、B8 是冗餘位元 r1–r4，其餘 8 個是資料 d1–d8。每筆資料剛好有（最多）一個 bit 錯誤。</p>
 <ol class="steps">
@@ -157,6 +159,7 @@ endmodule
 <div class="warn"><span class="tag">易錯</span>位置從 1 開始數，陣列 index 從 0 開始：B<sub>k</sub> 是 <code>data[k-1]</code>。decoded 的順序是 d8 在最高位。</div>
 
 <h2 id="y2023-C">C · 兩條蛇吃蘋果（40%）</h2>
+<div class="kit"><span class="tag">官方檔案（SV 版）</span><div class="kit-files"><a href="code/kits/2023/C/exam1_C.sv" target="_blank" rel="noopener"><code>exam1_C.sv</code><span>範本</span></a><a href="code/kits/2023/C/exam1_C.xdc" target="_blank" rel="noopener"><code>exam1_C.xdc</code><span>constraint</span></a></div><p class="kit-meta"><a class="kit-zip" href="kits/exam2023_C.zip">下載全部（.zip）</a> · <a href="kits/exam2023_original.zip">老師原始 Verilog 檔（.zip）</a></p><p class="kit-note">老師當年發的檔案。testbench 從 Verilog 轉成 SystemVerilog（只把 reg / wire 改成 logic），pattern 與 XDC 原封不動。 把範本加進 design sources、XDC 加進 constraints，寫完後 Generate Bitstream。</p></div>
 <h3>題意</h3>
 <div class="tbl"><table><thead><tr><th>項目</th><th>規格</th></tr></thead><tbody>
 <tr><td>按鈕</td><td>rst = BTNC（同步）、en = BTNR、set = BTNL、up = BTNU、down = BTND</td></tr>
@@ -506,6 +509,7 @@ endmodule
 <!-- ======================================================================= -->
 <section class="tabpanel" id="y2022" data-label="2022（111 學年）">
 <h2 id="y2022-A">A · 同步 ALU（30%）</h2>
+<div class="kit"><span class="tag">自製考試檔案</span><div class="kit-files"><a href="code/kits/2022/A/exam1_A.sv" target="_blank" rel="noopener"><code>exam1_A.sv</code><span>範本</span></a><a href="code/kits/2022/A/exam1_A_tb.sv" target="_blank" rel="noopener"><code>exam1_A_tb.sv</code><span>testbench</span></a><a href="code/kits/2022/A/pattern_A.dat" target="_blank" rel="noopener"><code>pattern_A.dat</code><span>pattern</span></a></div><p class="kit-meta"><a class="kit-zip" href="kits/exam2022_A.zip">下載全部（.zip）</a></p><p class="kit-note">老師的檔案沒有留下來，這份是依題目自製：testbench 仿 2023 官方格式，pattern 由題目規則的參考模型產生，XDC 取自 2023 版（I/O 相同）。 把範本加進 design sources，testbench 和 .dat 加進 <strong>simulation</strong> sources，testbench 設為 top 後跑 Behavioral Simulation。</p></div>
 <div class="tbl"><table><thead><tr><th>ctrl</th><th>功能</th><th>例子</th></tr></thead>
 <tbody>
 <tr><td><code>00</code></td><td><code>A * (-B)</code></td><td>A=5、B=-6 → 30</td></tr>
@@ -548,6 +552,7 @@ endmodule
 </div></details>
 
 <h2 id="y2022-B">B · 類費氏計數器（30%）</h2>
+<div class="kit"><span class="tag">自製考試檔案</span><div class="kit-files"><a href="code/kits/2022/B/exam1_B.sv" target="_blank" rel="noopener"><code>exam1_B.sv</code><span>範本</span></a><a href="code/kits/2022/B/exam1_B_tb.sv" target="_blank" rel="noopener"><code>exam1_B_tb.sv</code><span>testbench</span></a><a href="code/kits/2022/B/pattern_B.dat" target="_blank" rel="noopener"><code>pattern_B.dat</code><span>pattern</span></a></div><p class="kit-meta"><a class="kit-zip" href="kits/exam2022_B.zip">下載全部（.zip）</a></p><p class="kit-note">老師的檔案沒有留下來，這份是依題目自製：testbench 仿 2023 官方格式，pattern 由題目規則的參考模型產生，XDC 取自 2023 版（I/O 相同）。 把範本加進 design sources，testbench 和 .dat 加進 <strong>simulation</strong> sources，testbench 設為 top 後跑 Behavioral Simulation。</p></div>
 <h3>題意</h3>
 <p>設 c<sub>i</sub> 為目前值，c<sub>i-1</sub> 為前一個值，S = c<sub>i-1</sub> + c<sub>i</sub>，i 從 1 開始。</p>
 <div class="split">
@@ -633,9 +638,10 @@ module exam1_B (
 endmodule
 </pre>
 </div></details>
-<div class="note"><span class="tag">reset 後輸出什麼？</span>題目沒有明講 reset 時輸出 0 還是 1，2022 年的 testbench 我們沒有。本解 reset 輸出 0、下一拍輸出 1（等同下數結束後的重新開始）。考試時請看 testbench 怎麼比對第一筆。</div>
+<div class="note"><span class="tag">reset 後輸出什麼？</span>題目沒有明講 reset 時輸出 0 還是 1，2022 年的官方 testbench 也沒有留下來。上方的自製 testbench 規定 reset 時輸出 0、放開後依序 1、5、6…（等同下數結束後的重新開始），本解也是這樣。真正考試時以發下來的 testbench 為準。</div>
 
 <h2 id="y2022-C">C · AI 與玩家搶旗子（40%）</h2>
+<div class="kit"><span class="tag">自製考試檔案</span><div class="kit-files"><a href="code/kits/2022/C/exam1_C.sv" target="_blank" rel="noopener"><code>exam1_C.sv</code><span>範本</span></a><a href="code/kits/2022/C/exam1_C.xdc" target="_blank" rel="noopener"><code>exam1_C.xdc</code><span>constraint</span></a></div><p class="kit-meta"><a class="kit-zip" href="kits/exam2022_C.zip">下載全部（.zip）</a></p><p class="kit-note">老師的檔案沒有留下來，這份是依題目自製：testbench 仿 2023 官方格式，pattern 由題目規則的參考模型產生，XDC 取自 2023 版（I/O 相同）。 把範本加進 design sources、XDC 加進 constraints，寫完後 Generate Bitstream。</p></div>
 <div class="tbl"><table><thead><tr><th>項目</th><th>規格</th></tr></thead><tbody>
 <tr><td>按鈕</td><td>rst = BTNC、en = BTNR（RESET→START、START↔PAUSE）、set = BTNL（依 sw 加旗子）、up/down 改玩家模式</td></tr>
 <tr><td>RESET</td><td>AI 在 LD15；玩家在 LD2–LD0（mode 1）</td></tr>
@@ -951,6 +957,7 @@ endmodule
 <!-- ======================================================================= -->
 <section class="tabpanel" id="y2021" data-label="2021（110 學年）">
 <h2 id="y2021-A">A · 同步 ALU（30%）</h2>
+<div class="kit"><span class="tag">自製考試檔案</span><div class="kit-files"><a href="code/kits/2021/A/exam1_A.sv" target="_blank" rel="noopener"><code>exam1_A.sv</code><span>範本</span></a><a href="code/kits/2021/A/exam1_A_tb.sv" target="_blank" rel="noopener"><code>exam1_A_tb.sv</code><span>testbench</span></a><a href="code/kits/2021/A/pattern_A.dat" target="_blank" rel="noopener"><code>pattern_A.dat</code><span>pattern</span></a></div><p class="kit-meta"><a class="kit-zip" href="kits/exam2021_A.zip">下載全部（.zip）</a></p><p class="kit-note">老師的檔案沒有留下來，這份是依題目自製：testbench 仿 2023 官方格式，pattern 由題目規則的參考模型產生，XDC 由 2023 版改成這年的 port 名稱。 把範本加進 design sources，testbench 和 .dat 加進 <strong>simulation</strong> sources，testbench 設為 top 後跑 Behavioral Simulation。</p></div>
 <div class="tbl"><table><thead><tr><th>ctrl</th><th>功能</th><th>例子</th></tr></thead>
 <tbody>
 <tr><td><code>00</code></td><td><code>A * B</code></td><td>12 × 44 = 528</td></tr>
@@ -990,6 +997,7 @@ endmodule
 <div class="warn"><span class="tag">注意 ctrl 的順序</span>這年的 <code>10</code> 和 <code>11</code> 有定義，<code>01</code> 是 default。每年對應都不一樣，照題目表格寫，不要憑印象。</div>
 
 <h2 id="y2021-B">B · 規則計數器（30%）</h2>
+<div class="kit"><span class="tag">自製考試檔案</span><div class="kit-files"><a href="code/kits/2021/B/exam1_B.sv" target="_blank" rel="noopener"><code>exam1_B.sv</code><span>範本</span></a><a href="code/kits/2021/B/exam1_B_tb.sv" target="_blank" rel="noopener"><code>exam1_B_tb.sv</code><span>testbench</span></a><a href="code/kits/2021/B/pattern_B.dat" target="_blank" rel="noopener"><code>pattern_B.dat</code><span>pattern</span></a></div><p class="kit-meta"><a class="kit-zip" href="kits/exam2021_B.zip">下載全部（.zip）</a></p><p class="kit-note">老師的檔案沒有留下來，這份是依題目自製：testbench 仿 2023 官方格式，pattern 由題目規則的參考模型產生，XDC 由 2023 版改成這年的 port 名稱。 把範本加進 design sources，testbench 和 .dat 加進 <strong>simulation</strong> sources，testbench 設為 top 後跑 Behavioral Simulation。</p></div>
 <h3>題意</h3>
 <p>從 0 上數到 183921，再下數到 0，重複。i 是「這個方向的第 i 步」，從 1 開始。</p>
 <ul>
@@ -1052,6 +1060,7 @@ endmodule
 </div></details>
 
 <h2 id="y2021-C">C · LED 賽跑者（40%）</h2>
+<div class="kit"><span class="tag">自製考試檔案</span><div class="kit-files"><a href="code/kits/2021/C/exam1_C.sv" target="_blank" rel="noopener"><code>exam1_C.sv</code><span>範本</span></a><a href="code/kits/2021/C/exam1_C.xdc" target="_blank" rel="noopener"><code>exam1_C.xdc</code><span>constraint</span></a></div><p class="kit-meta"><a class="kit-zip" href="kits/exam2021_C.zip">下載全部（.zip）</a></p><p class="kit-note">老師的檔案沒有留下來，這份是依題目自製：testbench 仿 2023 官方格式，pattern 由題目規則的參考模型產生，XDC 由 2023 版改成這年的 port 名稱。 把範本加進 design sources、XDC 加進 constraints，寫完後 Generate Bitstream。</p></div>
 <div class="tbl"><table><thead><tr><th>項目</th><th>規格</th></tr></thead><tbody>
 <tr><td>I/O</td><td>rst_btn = BTNC、start_btn = BTNL、sw = 牆</td></tr>
 <tr><td>RESET</td><td>Mr.1 在 LED1（往左）、Mr.2 在 LED10（往右）；七段最左顯示 "R"、右兩位 00</td></tr>
@@ -1336,6 +1345,6 @@ endmodule
   原始碼：<a href="https://github.com/weifish0/hdl-midterm-guide">GitHub</a>
 </footer>
 <script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js"></script>
-<script src="assets/app.js"></script>
+<script src="assets/app.js?v=adac5d71"></script>
 </body>
 </html>
