@@ -60,34 +60,38 @@ endmodule</pre>
 
 <section class="tabpanel" id="cs-c" data-label="C 骨架">
 <h2>C 題骨架</h2>
-<pre class="code" data-title="exam1_C 骨架">module exam1_C (
+<p>clock_divider、debounce、one_pulse、SevenSegment 考試會給（通常已經在範本檔案裡），下面只示範怎麼接。</p>
+<pre class="code" data-title="exam1_C 骨架（用考試提供的模組）">module exam1_C (
     input  logic clk, rst, en, set, up, down,
     input  logic [15:0] sw,
     output logic [3:0]  DIGIT,
     output logic [6:0]  DISPLAY,
     output logic [15:0] led
 );
-    // 1) 按鈕 -> 1 週期脈衝
-    logic en_p, set_p, up_p, down_p;
-    btn_pulse u0 (.clk, .rst, .btn(en),  .pulse(en_p));
-    btn_pulse u1 (.clk, .rst, .btn(set), .pulse(set_p));
-    btn_pulse u2 (.clk, .rst, .btn(up),  .pulse(up_p));
-    btn_pulse u3 (.clk, .rst, .btn(down),.pulse(down_p));
+    // 1) 按鈕：debounce（慢時脈取樣）-> one_pulse（100 MHz，1 個 clk 寬）
+    logic clk_db;
+    clock_divider #(.n(16)) u_cd_db (.clk(clk), .clk_div(clk_db));
+    logic en_d, set_d, up_d, down_d, en_p, set_p, up_p, down_p;
+    debounce  u_db0 (.clk(clk_db), .pb(en),   .pb_debounced(en_d));
+    debounce  u_db1 (.clk(clk_db), .pb(set),  .pb_debounced(set_d));
+    debounce  u_db2 (.clk(clk_db), .pb(up),   .pb_debounced(up_d));
+    debounce  u_db3 (.clk(clk_db), .pb(down), .pb_debounced(down_d));
+    one_pulse u_op0 (.clk(clk), .pb_in(en_d),   .pb_out(en_p));
+    one_pulse u_op1 (.clk(clk), .pb_in(set_d),  .pb_out(set_p));
+    one_pulse u_op2 (.clk(clk), .pb_in(up_d),   .pb_out(up_p));
+    one_pulse u_op3 (.clk(clk), .pb_in(down_d), .pb_out(down_p));
 
-    // 2) 狀態
+    // 2) tick：clock_divider + one_pulse(~clk_div)，每 2^n 週期一個 clk 寬的脈衝
+    logic cd25, t25;
+    clock_divider #(.n(25)) u_cd25 (.clk(clk), .clk_div(cd25));
+    one_pulse     u_t25    (.clk(clk), .pb_in(~cd25), .pb_out(t25));
+
+    // 3) 狀態
     typedef enum logic [1:0] {S_RESET, S_START, S_PAUSE, S_FINISH} state_t;
     state_t state;
 
-    // 3) tick：同一個計數器
-    logic [25:0] cnt;
-    logic t24, t25, t26;
-    always_ff @(posedge clk) cnt <= rst ? '0 : cnt + 1'b1;
-    assign t24 = (cnt[23:0] == '1);
-    assign t25 = (cnt[24:0] == '1);
-    assign t26 = (cnt == '1);
-
-    // 4) 資料暫存器 + 狀態轉移：一個 always_ff
-    logic [3:0] pos;  logic [3:0] score;
+    // 4) 資料暫存器 + 狀態轉移：一個 always_ff，全部用 clk
+    logic [3:0] pos, score;
     always_ff @(posedge clk) begin
         if (rst) begin
             state <= S_RESET; pos <= 4'd15; score <= '0;
@@ -102,12 +106,13 @@ endmodule</pre>
         endcase
     end
 
-    // 5) 輸出
-    assign led = 16'b1 << pos;
-    seven_seg u_seg (.clk, .c3(5'd0), .c2(5'd0), .c1(5'd0), .c0({1'b0, score}), .DIGIT, .DISPLAY);
-endmodule
-// 6) 貼上 btn_pulse 與 seven_seg</pre>
-<!--#code common/helpers.sv | helpers.sv（貼在檔案最後）-->
+    // 5) 輸出：LED 遮罩、nums 交給 SevenSegment（nums[15:12] 最左）
+    logic [15:0] nums;
+    assign led  = 16'b1 << pos;
+    assign nums = {4'd0, 4'd0, 4'd0, score};
+    SevenSegment u_seg (.display(DISPLAY), .digit(DIGIT), .nums(nums), .rst(rst), .clk(clk));
+endmodule</pre>
+<!--#code common/provided.sv | provided.sv（考試提供，供對照 port 名稱）-->
 </section>
 
 <section class="tabpanel" id="cs-rules" data-label="規則速記">

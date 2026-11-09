@@ -12,12 +12,19 @@ module lab4_basic (
     typedef enum logic [1:0] {INIT, PLAY, FINAL} state_t;
     state_t state;
 
-    // ---- every button -> one clean pulse ----
-    logic pL, pR, pD, pU;
-    btn_pulse u_l (.clk, .rst, .btn(btnL), .pulse(pL));
-    btn_pulse u_r (.clk, .rst, .btn(btnR), .pulse(pR));
-    btn_pulse u_d (.clk, .rst, .btn(btnD), .pulse(pD));
-    btn_pulse u_u (.clk, .rst, .btn(btnU), .pulse(pU));
+    // ---- every button -> one clean pulse (provided debounce + one_pulse) ----
+    // debounce samples every 2^16 cycles (~0.65 ms); one_pulse makes a 1-cycle pulse at 100 MHz
+    logic clk_db;
+    clock_divider #(.n(16)) u_cd_db (.clk(clk), .clk_div(clk_db));
+    logic dL, dR, dD, dU, pL, pR, pD, pU;
+    debounce  u_db_l (.clk(clk_db), .pb(btnL), .pb_debounced(dL));
+    debounce  u_db_r (.clk(clk_db), .pb(btnR), .pb_debounced(dR));
+    debounce  u_db_d (.clk(clk_db), .pb(btnD), .pb_debounced(dD));
+    debounce  u_db_u (.clk(clk_db), .pb(btnU), .pb_debounced(dU));
+    one_pulse u_op_l (.clk(clk), .pb_in(dL), .pb_out(pL));
+    one_pulse u_op_r (.clk(clk), .pb_in(dR), .pb_out(pR));
+    one_pulse u_op_d (.clk(clk), .pb_in(dD), .pb_out(pD));
+    one_pulse u_op_u (.clk(clk), .pb_in(dU), .pb_out(pU));
 
     // ---- 4-bit LFSR: shift left, feedback = lfsr[3] ^ lfsr[0]  (0001 -> 0011 -> 0111 ...) ----
     logic [3:0] lfsr, lfsr_next;
@@ -77,20 +84,55 @@ module lab4_basic (
     end
 endmodule
 
-module btn_pulse #(parameter int DB = 16) (
-    input logic clk, input logic rst, input logic btn, output logic pulse
+// ---- provided modules (unchanged) ----
+module clock_divider #(
+    parameter n = 27 // 2^27 / 100M Hz = 1.34s
+)(
+    input logic  clk,
+    output logic clk_div  
 );
-    logic [DB-1:0] div;
-    logic [3:0]    samples;
-    logic          stable, stable_d;
-    assign stable = &samples;
-    always_ff @(posedge clk or posedge rst) begin
-        if (rst) begin div <= '0; samples <= '0; stable_d <= 1'b0; end
-        else begin
-            div <= div + 1'b1;
-            if (div == '0) samples <= {samples[2:0], btn};
-            stable_d <= stable;
-        end
+
+    logic [n-1:0] num;
+    logic [n-1:0] next_num;
+
+    always_ff @(posedge clk) begin
+        num <= next_num;
     end
-    assign pulse = stable & ~stable_d;
+
+    assign next_num = num + 1'b1;
+    assign clk_div = num[n-1];
+endmodule
+
+
+module debounce #(
+    parameter n = 8
+)(
+    input logic clk,
+    input logic pb,
+    output logic pb_debounced
+);
+
+    logic [n-1:0] shift_reg;
+
+    always_ff @(posedge clk) begin
+        shift_reg[n-1:1] <= shift_reg[n-2:0];
+        shift_reg[0] <= pb;
+    end
+
+    assign pb_debounced = &shift_reg;
+endmodule
+
+
+module one_pulse (
+    input logic clk,
+    input logic pb_in,
+    output logic pb_out
+);
+
+	logic pb_in_delay;
+
+	always_ff @(posedge clk) begin
+		pb_out <= (pb_in & ~pb_in_delay);
+		pb_in_delay <= pb_in;
+	end
 endmodule

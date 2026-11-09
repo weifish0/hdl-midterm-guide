@@ -83,34 +83,38 @@ endmodule</pre>
 
 <section class="tabpanel" id="cs-c" data-label="C 骨架">
 <h2>C 題骨架</h2>
-<pre class="code" data-title="exam1_C 骨架">module exam1_C (
+<p>clock_divider、debounce、one_pulse、SevenSegment 考試會給（通常已經在範本檔案裡），下面只示範怎麼接。</p>
+<pre class="code" data-title="exam1_C 骨架（用考試提供的模組）">module exam1_C (
     input  logic clk, rst, en, set, up, down,
     input  logic [15:0] sw,
     output logic [3:0]  DIGIT,
     output logic [6:0]  DISPLAY,
     output logic [15:0] led
 );
-    // 1) 按鈕 -> 1 週期脈衝
-    logic en_p, set_p, up_p, down_p;
-    btn_pulse u0 (.clk, .rst, .btn(en),  .pulse(en_p));
-    btn_pulse u1 (.clk, .rst, .btn(set), .pulse(set_p));
-    btn_pulse u2 (.clk, .rst, .btn(up),  .pulse(up_p));
-    btn_pulse u3 (.clk, .rst, .btn(down),.pulse(down_p));
+    // 1) 按鈕：debounce（慢時脈取樣）-> one_pulse（100 MHz，1 個 clk 寬）
+    logic clk_db;
+    clock_divider #(.n(16)) u_cd_db (.clk(clk), .clk_div(clk_db));
+    logic en_d, set_d, up_d, down_d, en_p, set_p, up_p, down_p;
+    debounce  u_db0 (.clk(clk_db), .pb(en),   .pb_debounced(en_d));
+    debounce  u_db1 (.clk(clk_db), .pb(set),  .pb_debounced(set_d));
+    debounce  u_db2 (.clk(clk_db), .pb(up),   .pb_debounced(up_d));
+    debounce  u_db3 (.clk(clk_db), .pb(down), .pb_debounced(down_d));
+    one_pulse u_op0 (.clk(clk), .pb_in(en_d),   .pb_out(en_p));
+    one_pulse u_op1 (.clk(clk), .pb_in(set_d),  .pb_out(set_p));
+    one_pulse u_op2 (.clk(clk), .pb_in(up_d),   .pb_out(up_p));
+    one_pulse u_op3 (.clk(clk), .pb_in(down_d), .pb_out(down_p));
 
-    // 2) 狀態
+    // 2) tick：clock_divider + one_pulse(~clk_div)，每 2^n 週期一個 clk 寬的脈衝
+    logic cd25, t25;
+    clock_divider #(.n(25)) u_cd25 (.clk(clk), .clk_div(cd25));
+    one_pulse     u_t25    (.clk(clk), .pb_in(~cd25), .pb_out(t25));
+
+    // 3) 狀態
     typedef enum logic [1:0] {S_RESET, S_START, S_PAUSE, S_FINISH} state_t;
     state_t state;
 
-    // 3) tick：同一個計數器
-    logic [25:0] cnt;
-    logic t24, t25, t26;
-    always_ff @(posedge clk) cnt <= rst ? '0 : cnt + 1'b1;
-    assign t24 = (cnt[23:0] == '1);
-    assign t25 = (cnt[24:0] == '1);
-    assign t26 = (cnt == '1);
-
-    // 4) 資料暫存器 + 狀態轉移：一個 always_ff
-    logic [3:0] pos;  logic [3:0] score;
+    // 4) 資料暫存器 + 狀態轉移：一個 always_ff，全部用 clk
+    logic [3:0] pos, score;
     always_ff @(posedge clk) begin
         if (rst) begin
             state <= S_RESET; pos <= 4'd15; score <= '0;
@@ -125,104 +129,137 @@ endmodule</pre>
         endcase
     end
 
-    // 5) 輸出
-    assign led = 16'b1 << pos;
-    seven_seg u_seg (.clk, .c3(5'd0), .c2(5'd0), .c1(5'd0), .c0({1'b0, score}), .DIGIT, .DISPLAY);
-endmodule
-// 6) 貼上 btn_pulse 與 seven_seg</pre>
-<pre class="code" data-lang="sv" data-title="helpers.sv（貼在檔案最後）" data-src="code/common/helpers.sv">// ===================================================================
-//  Reusable helper modules for FPGA problems (Basys3, 100 MHz clock)
-//  Paste these at the bottom of your exam file: the exam requires
-//  ONE file that contains every module you use.
+    // 5) 輸出：LED 遮罩、nums 交給 SevenSegment（nums[15:12] 最左）
+    logic [15:0] nums;
+    assign led  = 16'b1 << pos;
+    assign nums = {4'd0, 4'd0, 4'd0, score};
+    SevenSegment u_seg (.display(DISPLAY), .digit(DIGIT), .nums(nums), .rst(rst), .clk(clk));
+endmodule</pre>
+<pre class="code" data-lang="sv" data-title="provided.sv（考試提供，供對照 port 名稱）" data-src="code/common/provided.sv">// ===================================================================
+// Course-provided modules (SystemVerilog versions from Lab 4 advanced).
+// The exam gives you: clock_divider, debounce, onepulse (one_pulse),
+// SevenSegment and the XDC file. Copied here VERBATIM for reference.
 // ===================================================================
 
-// -------------------------------------------------------------------
-// btn_pulse: debounce + one-pulse in ONE clock domain (100 MHz).
-//   * The button is sampled once every 2^DB clock cycles
-//     (DB = 16 -&gt; every 0.65 ms), shifted into a 4-bit register.
-//   * &quot;stable&quot; = the last 4 samples were all 1.
-//   * pulse   = rising edge of &quot;stable&quot;, exactly ONE 100 MHz cycle wide.
-// -------------------------------------------------------------------
-module btn_pulse #(parameter int DB = 16) (
-    input  logic clk,
-    input  logic rst,
-    input  logic btn,
-    output logic pulse
+module clock_divider #(
+    parameter n = 27 // 2^27 / 100M Hz = 1.34s
+)(
+    input logic  clk,
+    output logic clk_div  
 );
-    logic [DB-1:0] div;
-    logic [3:0]    samples;
-    logic          stable, stable_d;
 
-    assign stable = &amp;samples;
+    logic [n-1:0] num;
+    logic [n-1:0] next_num;
 
     always_ff @(posedge clk) begin
-        if (rst) begin
-            div &lt;= &#x27;0; samples &lt;= &#x27;0; stable_d &lt;= 1&#x27;b0;
-        end else begin
-            div &lt;= div + 1&#x27;b1;
-            if (div == &#x27;0) samples &lt;= {samples[2:0], btn};
-            stable_d &lt;= stable;
-        end
+        num &lt;= next_num;
     end
 
-    assign pulse = stable &amp; ~stable_d;
+    assign next_num = num + 1&#x27;b1;
+    assign clk_div = num[n-1];
 endmodule
 
-// -------------------------------------------------------------------
-// seven_seg: 4-digit multiplexed display driver.
-//   * c3 is the LEFTMOST digit, c0 the RIGHTMOST.
-//   * each cN is a 5-bit character code (see the localparams below).
-//   * DIGIT and DISPLAY are ACTIVE-LOW on Basys3.
-//   * DISPLAY = {g, f, e, d, c, b, a}
-// -------------------------------------------------------------------
-module seven_seg (
-    input  logic       clk,
-    input  logic [4:0] c3, c2, c1, c0,
-    output logic [3:0] DIGIT,
-    output logic [6:0] DISPLAY
+
+module debounce #(
+    parameter n = 8
+)(
+    input logic clk,
+    input logic pb,
+    output logic pb_debounced
 );
-    // character codes: 0..9 are the digits themselves
-    localparam logic [4:0] CH_A = 5&#x27;d10, CH_E = 5&#x27;d14, CH_P = 5&#x27;d16,
-                           CH_R = 5&#x27;d17, CH_U = 5&#x27;d18, CH_DASH = 5&#x27;d19,
-                           CH_BLANK = 5&#x27;d31;
-    // &#x27;S&#x27; looks like 5 and &#x27;I&#x27; looks like 1 -&gt; just use 5 and 1
 
-    logic [16:0] refresh = &#x27;0;     // 2^15 cycles per digit (~0.33 ms); &#x27;= 0&#x27; sets the FPGA power-up value
-    logic [4:0]  ch;
+    logic [n-1:0] shift_reg;
 
-    always_ff @(posedge clk) refresh &lt;= refresh + 1&#x27;b1;
-
-    always_comb begin
-        case (refresh[16:15])
-            2&#x27;d0: begin DIGIT = 4&#x27;b1110; ch = c0; end
-            2&#x27;d1: begin DIGIT = 4&#x27;b1101; ch = c1; end
-            2&#x27;d2: begin DIGIT = 4&#x27;b1011; ch = c2; end
-            default: begin DIGIT = 4&#x27;b0111; ch = c3; end
-        endcase
+    always_ff @(posedge clk) begin
+        shift_reg[n-1:1] &lt;= shift_reg[n-2:0];
+        shift_reg[0] &lt;= pb;
     end
 
+    assign pb_debounced = &amp;shift_reg;
+endmodule
+
+
+module one_pulse (
+    input logic clk,
+    input logic pb_in,
+    output logic pb_out
+);
+
+	logic pb_in_delay;
+
+	always_ff @(posedge clk) begin
+		pb_out &lt;= (pb_in &amp; ~pb_in_delay);
+		pb_in_delay &lt;= pb_in;
+	end
+endmodule
+
+
+module SevenSegment(
+	output logic [6:0] display,
+	output logic [3:0] digit,
+	input logic [15:0] nums,
+	input logic rst,
+	input logic clk
+);
+    
+    logic [15:0] clk_divider;
+    logic [3:0] display_num;
+    
+    always_ff @(posedge clk or posedge rst) begin
+    	if (rst) begin
+    		clk_divider &lt;= 16&#x27;d0;
+    	end else begin
+    		clk_divider &lt;= clk_divider + 16&#x27;d1;
+    	end
+    end
+    
+    always_ff @(posedge clk_divider[15] or posedge rst) begin
+    	if (rst) begin
+    		display_num &lt;= 4&#x27;b0000;
+    		digit &lt;= 4&#x27;b1111;
+    	end else begin
+    		case (digit)
+    			4&#x27;b1110 : begin
+					display_num &lt;= nums[7:4];
+					digit &lt;= 4&#x27;b1101;
+    			end
+    			4&#x27;b1101 : begin
+					display_num &lt;= nums[11:8];
+					digit &lt;= 4&#x27;b1011;
+				end
+    			4&#x27;b1011 : begin
+					display_num &lt;= nums[15:12];
+					digit &lt;= 4&#x27;b0111;
+				end
+    			4&#x27;b0111 : begin
+					display_num &lt;= nums[3:0];
+					digit &lt;= 4&#x27;b1110;
+				end
+    			default : begin
+					display_num &lt;= nums[3:0];
+					digit &lt;= 4&#x27;b1110;
+				end				
+    		endcase
+    	end
+    end
+    
     always_comb begin
-        case (ch)
-            5&#x27;d0: DISPLAY = 7&#x27;b1000000;
-            5&#x27;d1: DISPLAY = 7&#x27;b1111001;
-            5&#x27;d2: DISPLAY = 7&#x27;b0100100;
-            5&#x27;d3: DISPLAY = 7&#x27;b0110000;
-            5&#x27;d4: DISPLAY = 7&#x27;b0011001;
-            5&#x27;d5: DISPLAY = 7&#x27;b0010010;
-            5&#x27;d6: DISPLAY = 7&#x27;b0000010;
-            5&#x27;d7: DISPLAY = 7&#x27;b1111000;
-            5&#x27;d8: DISPLAY = 7&#x27;b0000000;
-            5&#x27;d9: DISPLAY = 7&#x27;b0010000;
-            CH_A: DISPLAY = 7&#x27;b0001000;
-            CH_E: DISPLAY = 7&#x27;b0000110;
-            CH_P: DISPLAY = 7&#x27;b0001100;
-            CH_R: DISPLAY = 7&#x27;b0101111;   // lowercase r
-            CH_U: DISPLAY = 7&#x27;b1000001;
-            CH_DASH: DISPLAY = 7&#x27;b0111111;
-            default: DISPLAY = 7&#x27;b1111111; // blank
-        endcase
+    	case (display_num)
+    		4&#x27;d0: display = 7&#x27;b1000000;
+            4&#x27;d1: display = 7&#x27;b1111001;
+            4&#x27;d2: display = 7&#x27;b0100100;
+            4&#x27;d3: display = 7&#x27;b0110000;
+            4&#x27;d4: display = 7&#x27;b0011001;
+            4&#x27;d5: display = 7&#x27;b0010010;
+            4&#x27;d6: display = 7&#x27;b0000010;
+            4&#x27;d7: display = 7&#x27;b1111000;
+            4&#x27;d8: display = 7&#x27;b0000000;
+            4&#x27;d9: display = 7&#x27;b0010000;
+			default : display = 7&#x27;b1111111;
+    	endcase
     end
 endmodule
+
 </pre>
 </section>
 

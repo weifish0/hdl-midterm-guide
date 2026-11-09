@@ -71,24 +71,28 @@ set_property PACKAGE_PIN U2  [get_ports {DIGIT[0]}]     ;# rightmost digit</pre>
 <h3>掃描（multiplexing）：四位數輪流亮</h3>
 <p>四位數共用同一組 <code>DISPLAY</code> 線，所以一次只能亮一位。輪流快速點亮（每位約 0.33 ms），人眼就會看到四位同時亮。</p>
 <figure>
-<div class="fig wave" data-wave='{"title":"seven segment scanning","signals":[{"name":"refresh[16:15]","wave":"========","data":["0","1","2","3","0","1","2","3"]},{"name":"DIGIT","wave":"========","data":["1110","1101","1011","0111","1110","1101","1011","0111"]},{"name":"DISPLAY","wave":"========","data":["個位","十位","百位","千位","個位","十位","百位","千位"]}],"hscale":1.7,"nameW":110}'></div>
-<figcaption>每格是 2<sup>15</sup> 個 clk。DIGIT 哪一位是 0，DISPLAY 就顯示哪一位的字。</figcaption>
+<div class="fig wave" data-wave='{"title":"seven segment scanning","signals":[{"name":"clk_divider[15]","wave":"pppppppp"},{"name":"digit","wave":"========","data":["1110","1101","1011","0111","1110","1101","1011","0111"]},{"name":"display","wave":"========","data":["nums[3:0]","[7:4]","[11:8]","[15:12]","[3:0]","[7:4]","[11:8]","[15:12]"]}],"hscale":2,"nameW":120}'></div>
+<figcaption>提供的 <code>SevenSegment</code> 用自己的 16-bit 計數器第 15 位當時脈，每 2<sup>16</sup> 個 clk 換下一位。digit 哪一位是 0，display 就顯示 nums 裡對應的 4 bits。</figcaption>
 </figure>
-<pre class="code" data-title="seven_seg 的核心">logic [16:0] refresh = '0;
-always_ff @(posedge clk) refresh <= refresh + 1'b1;
 
-always_comb begin
-    case (refresh[16:15])          // 用最高兩位選擇現在亮哪一位
-        2'd0: begin DIGIT = 4'b1110; ch = c0; end   // 最右
-        2'd1: begin DIGIT = 4'b1101; ch = c1; end
-        2'd2: begin DIGIT = 4'b1011; ch = c2; end
-        default: begin DIGIT = 4'b0111; ch = c3; end   // 最左
-    endcase
-end
-// 再用一個 case 把 ch（0~9、字母代碼）轉成 DISPLAY</pre>
-<p>完整模組在 <a href="design.html#button">設計模式 → 按鈕</a> 下方的 helpers.sv。設計上的好處：你的主電路只需要決定「四個位置各顯示什麼字」（<code>c3..c0</code>），掃描細節全部交給它。</p>
+<h3>考試提供的 SevenSegment 怎麼用</h3>
+<pre class="code" data-title="接法">logic [15:0] nums;   // 每 4 bits 一位：nums[15:12] 最左 … nums[3:0] 最右
 
-<div class="note"><span class="tag">範本的 SevenSegment</span>2023 年範本的 <code>SevenSegment</code> 吃一個 16-bit <code>nums</code>（每 4 bits 一位），內建代碼 10=A、11=I、12=空白、13=U、14=S、15=-。直接用範本也可以，只要記得它的代碼表；需要範本沒有的字（例如 R、P）就自己改 case。</div>
+SevenSegment u_seg (.display(DISPLAY), .digit(DIGIT), .nums(nums), .rst(rst), .clk(clk));
+
+// 例：左兩位顯示計時器 7、右兩位顯示分數 13 -> "0713"
+assign nums = {4'd0, 4'd7, 4'd1, 4'd3};</pre>
+<p>你的主電路只要決定 <code>nums</code>（四個位置各顯示什麼），掃描交給它。Lab 4 advanced 附的版本只認得 0–9，<strong>其他代碼一律顯示空白</strong>。題目要字母（S、P、R、A、U、E、-）時，在它的 <code>case</code> 裡加幾行，把 10–15 這幾個沒用到的代碼對應到你要的字：</p>
+<pre class="code" data-title="在 SevenSegment 的 case 加字母（考試允許修改提供的模組）">    4'd9: display = 7'b0010000;
+    4'd10: display = 7'b0001000;   // A   <- 自己加的
+    4'd11: display = 7'b0000110;   // E
+    4'd12: display = 7'b1111111;   // 空白
+    4'd13: display = 7'b1000001;   // U
+    4'd14: display = 7'b0101111;   // r
+    4'd15: display = 7'b0111111;   // -
+    default : display = 7'b1111111;</pre>
+<p>S 長得跟 5 一樣、I 跟 1 一樣，直接用數字代碼。字母的筆劃碼可以用上面的筆劃測試器點出來。</p>
+<div class="note"><span class="tag">2023 範本的版本</span>2023 年考試附的 Verilog 版 <code>SevenSegment</code> 已經內建 10=A、11=I、12=空白、13=U、14=S、15=-（因為前一年要顯示 AIAI / USER）。考試拿到的版本可能已經有你要的字，先看它的 case 表。</div>
 </section>
 
 <!-- ============================================================ -->
@@ -102,11 +106,11 @@ end
     <rect x="20" y="40" width="110" height="60" class="d-fill"/>
     <rect x="20" y="130" width="110" height="60" class="d-fill"/>
     <rect x="20" y="220" width="110" height="60" class="d-fill"/>
-    <rect x="190" y="40" width="130" height="60" class="d-fill"/>
-    <rect x="190" y="220" width="130" height="60" class="d-fill"/>
+    <rect x="190" y="40" width="130" height="60" class="d-soft"/>
+    <rect x="190" y="220" width="130" height="60" class="d-soft"/>
     <rect x="380" y="70" width="160" height="190" class="d-fill"/>
     <rect x="600" y="70" width="140" height="70" class="d-fill"/>
-    <rect x="600" y="190" width="140" height="70" class="d-fill"/>
+    <rect x="600" y="190" width="140" height="70" class="d-soft"/>
     <path d="M130 70 H190"/><path d="M320 70 H380"/>
     <path d="M130 160 H360 V160 H380"/>
     <path d="M130 250 H190"/><path d="M320 250 H380"/>
@@ -117,8 +121,8 @@ end
     <text x="38" y="66" class="d-text">按鈕</text><text x="38" y="86" class="d-muted" font-size="11">en set up down</text>
     <text x="38" y="156" class="d-text">開關 sw</text><text x="38" y="176" class="d-muted" font-size="11">直接用</text>
     <text x="38" y="246" class="d-text">clk 100MHz</text><text x="38" y="266" class="d-muted" font-size="11">唯一的時脈</text>
-    <text x="202" y="66" class="d-text">btn_pulse ×4</text><text x="202" y="86" class="d-muted" font-size="11">1 週期脈衝</text>
-    <text x="202" y="246" class="d-text">tick 產生器</text><text x="202" y="266" class="d-muted" font-size="11">2^24 / 2^25 / 2^26</text>
+    <text x="202" y="66" class="d-text">debounce</text><text x="202" y="86" class="d-muted" font-size="11">+ one_pulse ×4</text>
+    <text x="202" y="246" class="d-text">clock_divider</text><text x="202" y="266" class="d-muted" font-size="11">+ one_pulse → tick</text>
     <text x="392" y="92" class="d-text">FSM 狀態</text>
     <text x="392" y="130" class="d-text">資料暫存器</text>
     <text x="392" y="152" class="d-muted" font-size="11">位置、方向、模式</text>
@@ -126,16 +130,16 @@ end
     <text x="392" y="192" class="d-muted" font-size="11">旗子/蘋果/牆 bitmap</text>
     <text x="392" y="236" class="d-muted" font-size="11">一個 always_ff</text>
     <text x="612" y="100" class="d-text">LED 輸出</text><text x="612" y="120" class="d-muted" font-size="11">遮罩 OR 起來</text>
-    <text x="612" y="220" class="d-text">七段顯示</text><text x="612" y="240" class="d-muted" font-size="11">c3..c0 → seven_seg</text>
+    <text x="612" y="220" class="d-text">SevenSegment</text><text x="612" y="240" class="d-muted" font-size="11">nums → SevenSegment</text>
   </g>
 </svg>
 </div>
-<figcaption>所有暫存器都在 100 MHz 的 clk 上；慢速事件用 tick 當 enable；按鈕變成 1 週期脈衝。輸出都是組合邏輯（依狀態決定顯示什麼）。</figcaption>
+<figcaption>灰框都是考試提供的模組。所有遊戲邏輯都在 100 MHz 的 clk 上；慢速事件用 tick 當 enable；按鈕變成 1 週期脈衝。輸出是組合邏輯（依狀態決定 LED 與 nums）。</figcaption>
 </figure>
 
 <h3>拿分的順序</h3>
 <ol class="steps">
-<li><strong>骨架</strong>：貼上 btn_pulse、seven_seg、tick 產生器；宣告 <code>enum</code> 狀態；LED 先輸出常數。合成一次，確定能產生 bitstream。</li>
+<li><strong>骨架</strong>：接好提供的模組（按鈕的 debounce + one_pulse、tick 用的 clock_divider + one_pulse、SevenSegment）；宣告 <code>enum</code> 狀態；LED 先輸出常數。合成一次，確定能產生 bitstream。</li>
 <li><strong>RESET 狀態</strong>（通常 5%）：初始位置的 LED、七段顯示的初始畫面。燒進板子看。</li>
 <li><strong>狀態轉移</strong>：按 en 進 START、再按進 PAUSE。用七段顯示器顯示狀態字母來確認。</li>
 <li><strong>移動</strong>：在 START 狀態用 tick 更新位置；處理邊界與環繞。</li>
@@ -193,11 +197,18 @@ module tb;
     exam1_C #(.T0(4), .DB(1)) dut (.*);     // tick 變成每 16 個週期
     always #5 clk = ~clk;
 
+    // 提供的 clock_divider 沒有 reset：模擬時先把計數器設成 0，不然永遠是 X
+    initial begin
+        force dut.u_cd_db.num = 0; force dut.u_cd0.num = 0; force dut.u_cd1.num = 0; force dut.u_cd2.num = 0;
+        #1;
+        release dut.u_cd_db.num; release dut.u_cd0.num; release dut.u_cd1.num; release dut.u_cd2.num;
+    end
+
     always @(led) $display("t=%0t led=%b state=%s", $time, led, dut.state.name());
 
     initial begin
         repeat (5) @(posedge clk); rst = 0;
-        en = 1; repeat (20) @(posedge clk); en = 0;     // 按一下 en
+        en = 1; repeat (40) @(posedge clk); en = 0;     // 按一下 en（要比 debounce 的 8 次取樣長）
         repeat (500) @(posedge clk);
         $finish;
     end
@@ -217,7 +228,7 @@ endmodule</pre>
 <tr><td>結果高位元被砍</td><td>中間結果寬度不夠</td><td>把中間變數宣告寬一點；或用 cast <code>9'(a+b)</code></td></tr>
 <tr><td>早一拍或晚一拍</td><td>A 題用了 <code>assign</code>（沒暫存）；或多加了一級暫存</td><td>看 testbench 在哪一拍比對（見 <a href="tb.html#tb-exam">讀懂考試 testbench</a>）</td></tr>
 <tr><td>Multiple driver / multi-driven net</td><td>兩個 always 指定同一個訊號</td><td>合併到同一個 always</td></tr>
-<tr><td>按一下按鈕跳好幾格</td><td>沒做 one-pulse，或 one-pulse 和 FSM 在不同時脈</td><td>用 btn_pulse，全部同一個 clk</td></tr>
+<tr><td>按一下按鈕跳好幾格</td><td>沒做 one-pulse，或 one-pulse 和 FSM 在不同時脈</td><td>debounce 後接 one_pulse，one_pulse 和 FSM 都用 100 MHz 的 clk</td></tr>
 <tr><td>按按鈕沒反應</td><td>FSM 跑在慢時脈，漏掉 1 週期的脈衝</td><td>同上</td></tr>
 <tr><td>Inferred latch 警告</td><td><code>always_comb</code> 某些路徑沒指定</td><td>先給預設值；case 加 default</td></tr>
 <tr><td>Bitstream 失敗：Unconstrained / NSTD-1 / UCIO-1</td><td>module 有 port 沒在 XDC 裡（改了 I/O 名稱）</td><td>port 名稱改回跟範本一致</td></tr>

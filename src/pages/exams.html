@@ -4,6 +4,7 @@
   <h1>歷屆考題詳解</h1>
   <p class="lede">九題全部改寫成 SystemVerilog。A、B 題都通過驗證：2023 用助教原本的 testbench 與 pattern（28/28、30/30），2021、2022 用依題目規則寫的參考模型產生 800 組 pattern 驗證。C 題都在 Vivado 合成成功，並用縮短時間的模擬檢查過題目的範例情境。</p>
 </div>
+<div class="key"><span class="tag">C 題直接用考試提供的模組</span>老師說考試會提供 <code>clock_divider</code>、<code>debounce</code>、<code>onepulse</code>、<code>SevenSegment</code> 和 XDC。三年的 C 題解答都只用這些模組：按鈕走 debounce → one_pulse，速度用 clock_divider + one_pulse 變成 tick，顯示交給 SevenSegment（只在它的 case 表裡加題目需要的字母）。</div>
 <div class="note"><span class="tag">建議用法</span>先只看「題意」，自己寫 20–40 分鐘，再看「思路」，最後才看解答。直接看解答的效果很差。</div>
 
 <div class="tabs">
@@ -72,13 +73,13 @@ stateDiagram-v2
 </pre>
 <h3>思路</h3>
 <ul>
-<li>用<strong>一個</strong> 26-bit 計數器產生 tick24、tick25、tick26，三者自動對齊；Snake111 依 mode 選其中一個。</li>
+<li>用提供的 <code>clock_divider</code>（n = 24、25、26）加 <code>one_pulse(~clk_div)</code> 產生 t24、t25、t26 三個 tick，三者自動對齊（見 <a href="design.html#tick">設計模式 → tick</a>）；Snake111 依 mode 選其中一個。</li>
 <li>Snake111 只存左端 <code>p</code>，右端 <code>r = p - 2</code>，遮罩 <code>16'b111 &lt;&lt; r</code>。Snake1 存位置 <code>q</code>。</li>
 <li><strong>每個 clk</strong> 都根據現在位置算「有效方向」：相鄰（<code>q + 1 &gt;= r</code>）優先、再來是撞邊界。題目範例要求「Snake1 先動、Snake111 還沒動時就已經判定相撞，下一步兩條都要轉向」，所以方向不能只在自己的 tick 才更新。</li>
 <li>蘋果是 16-bit bitmap：<code>apple &lt;= (apple &amp; ~occ) | (set_p ? sw &amp; ~occ : 0)</code>，一行同時處理被吃掉與新增。</li>
 <li>分差用有號數：<code>diff = $signed({1'b0, s111}) - $signed({1'b0, s1})</code>。</li>
 </ul>
-<details class="sol"><summary>解答：exam1_C.sv（Vivado 合成成功；模擬驗證碰撞反彈、平手歸屬、計時結束）</summary><div class="sol-body">
+<details class="sol"><summary>解答：exam1_C.sv（使用提供的模組；Vivado 合成成功；模擬驗證碰撞反彈、平手歸屬、計時結束）</summary><div class="sol-body">
 <!--#code exam2023/exam1_C.sv-->
 </div></details>
 <div class="warn"><span class="tag">易錯</span>
@@ -144,7 +145,7 @@ stateDiagram-v2
 <tr><td>AI</td><td>1 格，每 2<sup>25</sup> 移動，初始由左往右（LD0 之後是 LD15），撞到玩家就反向</td></tr>
 <tr><td>玩家</td><td>永遠由右往左（LD15 之後是 LD0）。mode 0：1 格、2<sup>24</sup>；mode 1：3 格、2<sup>25</sup>；mode 2：5 格、2<sup>26</sup>；改 mode 時從兩側伸縮</td></tr>
 <tr><td>得分</td><td>碰到旗子 +1、旗子消失；同時碰到給 AI。七段左兩位 AI 分數、右兩位玩家分數</td></tr>
-<tr><td>FINISH</td><td>任一方 10 分。顯示 "AIAI" 或 "USER"；LED 以 2<sup>24</sup> 在 0101… 與 1010… 間閃爍</td></tr>
+<tr><td>FINISH</td><td>任一方 10 分。顯示 "AIAI" 或 "USER"（R 只能用小寫 r 表示）；LED 以 2<sup>24</sup> 在 0101… 與 1010… 間閃爍</td></tr>
 </tbody></table></div>
 <h3>思路</h3>
 <ul>
@@ -152,7 +153,7 @@ stateDiagram-v2
 <li>4-bit 位置的加減自動環繞（15 + 1 = 0）。</li>
 <li>AI 撞玩家：在 AI 要移動的那一拍，看「玩家這一拍之後的位置」是否擋在前面（兩者可能同一拍移動）。</li>
 </ul>
-<details class="sol"><summary>解答：exam1_C.sv（Vivado 合成成功；模擬驗證搶旗、平手、反彈、PAUSE）</summary><div class="sol-body">
+<details class="sol"><summary>解答：exam1_C.sv（使用提供的模組；Vivado 合成成功；模擬驗證搶旗、平手、反彈、PAUSE）</summary><div class="sol-body">
 <!--#code exam2022/exam1_C.sv-->
 </div></details>
 <div class="note"><span class="tag">規格沒定義的情況</span>mode 0 的玩家速度是 AI 的兩倍，會從後面追上 AI 並重疊。題目沒說這時該怎麼辦；本解讓 AI 遇到玩家擋路就轉向。考試遇到這類情況，依 demo 影片的行為，或挑一個合理做法即可。</div>
@@ -202,7 +203,7 @@ stateDiagram-v2
 <h3>思路：每一步的規則</h3>
 <p>對每個人：算前進位置 <code>n</code>。如果 <code>n</code> 是牆、是對方現在的位置、或兩人前進位置相同，就「撞到」：反向，並往反方向走一格（反方向也被擋住就原地不動，這就是「卡在兩面牆中間」）。</p>
 <p>用題目的情境 1 驗證：Mr.1 在 4、Mr.2 在 7 → 下一步 5、6（相鄰）→ 再下一步兩人的前進位置都是對方 → 反向成 4、7。模擬結果與題目六張圖完全一致。</p>
-<details class="sol"><summary>解答：exam1_C.sv（Vivado 合成成功；模擬重現題目情境 1、3、4）</summary><div class="sol-body">
+<details class="sol"><summary>解答：exam1_C.sv（使用提供的模組；Vivado 合成成功；模擬重現題目情境 1、3、4）</summary><div class="sol-body">
 <!--#code exam2021/exam1_C.sv-->
 </div></details>
 <div class="note"><span class="tag">計次時機</span>題目圖中把 +1 標在「兩人相鄰」那一拍；本解在「反彈」那一拍 +1，相差一個 step。依助教 demo 為準，改起來只是把計數條件換成「移動後相鄰且相向」。</div>

@@ -111,7 +111,7 @@ endmodule</pre>
     output logic [6:0]  DISPLAY,
     output logic [15:0] led
 );
-    // your design here (you may reuse btn_pulse and seven_seg)
+    // your design here (use the provided clock_divider, debounce, one_pulse, SevenSegment)
 endmodule</pre>
 <h3>評分（自評用）</h3>
 <div class="tbl"><table><thead><tr><th>項目</th><th>分數</th></tr></thead><tbody>
@@ -137,7 +137,7 @@ endmodule</pre>
 </div></details>
 <details class="sol"><summary>C 解答：mock_C.sv</summary><div class="sol-body">
 <!--#code mock/mock_C.sv-->
-<p>重點：精準 1 秒用計數到 <code>SEC-1</code> 的 timer；地鼠的閃爍、逃走用 2 的次方計數器；LFSR 每拍都跑，需要時才取值。<code>SEC</code>、<code>LIFE</code> 寫成參數，模擬時可以縮小。</p>
+<p>重點：精準 1 秒用計數到 <code>SEC-1</code> 的 timer（2 的次方做不出剛好 1 秒，所以這裡不用 clock_divider）；地鼠閃爍與 OVER 閃爍直接拿提供的 <code>clock_divider</code> 當方波；LFSR 每拍都跑，需要時才取值。<code>SEC</code>、<code>LIFE</code> 寫成參數，模擬時可以縮小。</p>
 </div></details>
 <details class="sol"><summary>testbench 原始碼</summary><div class="sol-body">
 <!--#code mock/mock_A_tb.sv-->

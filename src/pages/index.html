@@ -19,10 +19,12 @@
     <li>模組名稱必須是 <code>exam1_A</code>、<code>exam1_B</code>、<code>exam1_C</code>，<strong>I/O 不能改</strong>。</li>
     <li>每個檔案<strong>第一行</strong>是註解：<code>// 學號 姓名</code>，漏了扣 5 分。</li>
     <li>不能改 testbench、pattern、XDC。助教會用<strong>同一個 testbench、不同 pattern</strong> 重測，所以不能「對答案寫死」。</li>
-    <li>C 題所有用到的模組（除彈跳、七段顯示…）都要放在<strong>同一個檔案</strong>，而且要能合成出 bit 檔，不然 C 題 0 分。</li>
+    <li>C 題所有用到的模組都要放在<strong>同一個檔案</strong>，而且要能合成出 bit 檔，不然 C 題 0 分。</li>
     <li>B 題常禁止 lookup table、寫死數列；有時禁止 <code>/</code> 或 <code>%</code>（用了只拿一半）。</li>
   </ul>
 </div>
+
+<div class="key"><span class="tag">考試會提供</span><code>clock_divider</code>、<code>debounce</code>、<code>onepulse</code>、<code>SevenSegment</code> 和 XDC constraints。這些不用背也不用自己寫，要會的是怎麼接（見 <a href="design.html#button">設計模式 → 按鈕</a>、<a href="design.html#tick">tick</a>、<a href="fpga.html#sevenseg">七段顯示器</a>）。本站所有 C 題解答都只用這些模組。</div>
 
 <h2>今年改用 SystemVerilog，差在哪？</h2>
 <p>舊考題的範本是 Verilog（<code>.v</code>，用 <code>reg</code>/<code>wire</code>、<code>always @(posedge clk)</code>）。今年的 Lab 全部是 <code>.sv</code>，所以考試範本很可能長這樣：</p>

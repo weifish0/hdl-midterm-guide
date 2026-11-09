@@ -114,27 +114,26 @@ end</pre>
 <h2>時間：除頻器 vs tick</h2>
 <p>Basys3 的時脈是 100 MHz（每 10 ns 一個週期）。LED 要每 0.3 秒動一次，就要「數」很多個週期。題目常寫「以 100MHz/2<sup>25</sup> 的頻率移動」= 每 2<sup>25</sup> = 33,554,432 個週期（約 0.34 秒）動一次。</p>
 
-<h3>做法 A：除頻器當時脈（課堂範本的做法）</h3>
-<pre class="code" data-title="clock_divider">logic [24:0] num;
-always_ff @(posedge clk) num <= num + 1'b1;
-assign clk_div = num[24];          // 每 2^24 週期翻轉 -> 週期 2^25
+<h3>做法 A：clk_div 直接當時脈（課堂範本的做法）</h3>
+<pre class="code" data-title="用提供的 clock_divider 當時脈">logic clk_25;
+clock_divider #(.n(25)) u_cd25 (.clk(clk), .clk_div(clk_25));   // clk_div = num[24]，週期 2^25
 
-always_ff @(posedge clk_div) pos <= pos + 1;   // 用 clk_div 當時脈</pre>
+always_ff @(posedge clk_25) pos <= pos + 1;   // 用 clk_25 當時脈</pre>
 
-<h3>做法 B：單一時脈 + tick 脈衝（推薦）</h3>
-<pre class="code" data-title="tick 產生器">logic [25:0] cnt;                              // 26 bits
-always_ff @(posedge clk) cnt <= cnt + 1'b1;
-
-assign tick24 = (cnt[23:0] == '1);            // 每 2^24 個週期有 1 個週期是 1
-assign tick25 = (cnt[24:0] == '1);            // 每 2^25
-assign tick26 = (cnt      == '1);             // 每 2^26
+<h3>做法 B：clk_div 轉成 tick，所有邏輯只用 clk（推薦）</h3>
+<p>還是用考試給的 <code>clock_divider</code>，但不拿它的輸出當時脈，而是用同樣考試給的 <code>one_pulse</code> 把它變成「每 2<sup>n</sup> 週期出現一次、寬度一個 clk」的脈衝。概念跟按鈕完全一樣：把 <code>clk_div</code> 想成一顆每 2<sup>n</sup> 週期被按一次的按鈕。</p>
+<pre class="code" data-title="tick：clock_divider + one_pulse">logic cd25, tick25;
+clock_divider #(.n(25)) u_cd25 (.clk(clk), .clk_div(cd25));
+one_pulse     u_t25    (.clk(clk), .pb_in(~cd25), .pb_out(tick25));   // clk_div 由 1 掉到 0 的那一拍
 
 always_ff @(posedge clk)                       // 所有東西都用同一個 clk
     if (tick25) pos <= pos + 1;               // tick 當作 enable</pre>
+<p>為什麼用 <code>~cd25</code>（抓下降緣）？<code>clk_div</code> 從 1 掉到 0 的瞬間，就是計數器從全 1 繞回 0 的時候，也就是 2<sup>n</sup> 的整數倍。所以 2<sup>24</sup>、2<sup>25</sup>、2<sup>26</sup> 三個 tick 會自動對齊：每次 2<sup>26</sup> 的 tick 出現，另外兩個也同時出現，正好符合 2023 年題目「兩條蛇同時被觸發」的時序範例。</p>
 <figure>
-<div class="fig wave" data-wave='{"title":"tick vs divided clock","signals":[{"name":"clk","wave":"p..........."},{"name":"cnt[1:0]","wave":"============","data":["0","1","2","3","0","1","2","3","0","1","2","3"]},{"name":"clk_div","wave":"0.1.0.1.0.1."},{"name":"tick","wave":"0..10..10..1"}]}'></div>
-<figcaption>以 2 bits 為例。<code>clk_div = cnt[1]</code> 是 50% 方波；<code>tick = (cnt == 3)</code> 每 4 個週期只亮 1 個週期，當 enable 用。</figcaption>
+<div class="fig wave" data-wave='{"title":"tick vs divided clock","signals":[{"name":"clk","wave":"p..........."},{"name":"num[1:0]","wave":"============","data":["0","1","2","3","0","1","2","3","0","1","2","3"]},{"name":"clk_div","wave":"0.1.0.1.0.1."},{"name":"tick","wave":"0....10..10."}]}'></div>
+<figcaption>以 n = 2 為例。<code>clk_div = num[1]</code> 是 50% 方波；它掉回 0 之後的下一拍，<code>one_pulse(~clk_div)</code> 輸出一個 clk 寬的 tick（one_pulse 本身晚一拍）。</figcaption>
 </figure>
+<p class="muted">不用提供的模組也可以：自己寫一個計數器，<code>tick = (cnt[24:0] == '1)</code>。效果一樣。</p>
 
 <div class="key"><span class="tag">為什麼推薦 tick</span>
 <ul>
@@ -171,10 +170,11 @@ endmodule</pre>
 <h3>模擬時把時間縮短</h3>
 <p>在模擬器跑 2<sup>25</sup> 個週期要很久。把計數寬度寫成參數，testbench 裡覆寫成小數字：</p>
 <pre class="code" data-title="參數化速度">module exam1_C #(parameter int T0 = 24) ( ... );
-    logic [T0+1:0] cnt;
-    assign tick0 = (cnt[T0-1:0] == '1);
+    clock_divider #(.n(T0))   u_cd0 (.clk(clk), .clk_div(cd0));   // 2^T0
+    clock_divider #(.n(T0+1)) u_cd1 (.clk(clk), .clk_div(cd1));   // 2^(T0+1)
 ...
 // testbench：exam1_C #(.T0(4)) dut (.*);   -> 每 16 個週期就動一次</pre>
+<div class="warn"><span class="tag">模擬提供的模組時</span><code>clock_divider</code> 沒有 reset，計數器在模擬裡一開始是 X，X + 1 永遠是 X。上板沒問題（FPGA 上電是 0），但 testbench 要在 0 時刻把它設成 0：<code>initial begin force dut.u_cd0.num = 0; #1 release dut.u_cd0.num; end</code>。</div>
 </section>
 
 <!-- ============================================================ -->
@@ -186,127 +186,147 @@ endmodule</pre>
 <figcaption>debounced：連續好幾次取樣都是 1 才算按下。one_pulse = debounced &amp; ~delay（這拍是 1、上一拍是 0），剛好 1 個週期。</figcaption>
 </figure>
 
-<div class="split">
-<div>
-<pre class="code" data-title="debounce（課堂版）">module debounce #(parameter n = 4) (
-    input  logic clk, pb,
-    output logic pb_debounced
-);
-    logic [n-1:0] shift_reg;
-    always_ff @(posedge clk)
-        shift_reg <= {shift_reg[n-2:0], pb};
-    assign pb_debounced = &shift_reg;   // 全 1
-endmodule</pre>
-</div>
-<div>
-<pre class="code" data-title="one_pulse（課堂版）">module one_pulse (
-    input  logic clk, pb_in,
-    output logic pb_out
-);
-    logic pb_in_delay;
-    always_ff @(posedge clk) begin
-        pb_out      <= pb_in & ~pb_in_delay;
-        pb_in_delay <= pb_in;
-    end
-endmodule</pre>
-</div>
-</div>
-<p>課堂範本的 debounce 如果直接接 100 MHz，4 個 flip-flop 只取樣了 40 ns，根本濾不掉彈跳。範本的做法是把 debounce 接到除頻後的時脈（例如 2<sup>16</sup>），但這樣 one-pulse 也只能在慢時脈下用。</p>
-<p>下面這個版本把兩者合在一起、全部跑在 100 MHz：每 2<sup>16</sup> 週期取樣一次按鈕（約 0.65 ms），連續 4 次是 1 才算穩定，然後輸出一個 100 MHz 週期寬的脈衝。本站所有 C 題解答都用它。</p>
-<pre class="code" data-lang="sv" data-title="helpers.sv（btn_pulse + seven_seg）" data-src="code/common/helpers.sv">// ===================================================================
-//  Reusable helper modules for FPGA problems (Basys3, 100 MHz clock)
-//  Paste these at the bottom of your exam file: the exam requires
-//  ONE file that contains every module you use.
+<div class="key"><span class="tag">考試會直接給你</span><code>clock_divider</code>、<code>debounce</code>、<code>onepulse</code>（SV 版叫 <code>one_pulse</code>）、<code>SevenSegment</code> 和 XDC。不用自己寫，重點是<strong>知道怎麼接</strong>。下面是 Lab 4 advanced 附的 SystemVerilog 版本，原封不動。</div>
+<pre class="code" data-lang="sv" data-title="provided.sv（考試提供的模組）" data-src="code/common/provided.sv">// ===================================================================
+// Course-provided modules (SystemVerilog versions from Lab 4 advanced).
+// The exam gives you: clock_divider, debounce, onepulse (one_pulse),
+// SevenSegment and the XDC file. Copied here VERBATIM for reference.
 // ===================================================================
 
-// -------------------------------------------------------------------
-// btn_pulse: debounce + one-pulse in ONE clock domain (100 MHz).
-//   * The button is sampled once every 2^DB clock cycles
-//     (DB = 16 -&gt; every 0.65 ms), shifted into a 4-bit register.
-//   * &quot;stable&quot; = the last 4 samples were all 1.
-//   * pulse   = rising edge of &quot;stable&quot;, exactly ONE 100 MHz cycle wide.
-// -------------------------------------------------------------------
-module btn_pulse #(parameter int DB = 16) (
-    input  logic clk,
-    input  logic rst,
-    input  logic btn,
-    output logic pulse
+module clock_divider #(
+    parameter n = 27 // 2^27 / 100M Hz = 1.34s
+)(
+    input logic  clk,
+    output logic clk_div  
 );
-    logic [DB-1:0] div;
-    logic [3:0]    samples;
-    logic          stable, stable_d;
 
-    assign stable = &amp;samples;
+    logic [n-1:0] num;
+    logic [n-1:0] next_num;
 
     always_ff @(posedge clk) begin
-        if (rst) begin
-            div &lt;= &#x27;0; samples &lt;= &#x27;0; stable_d &lt;= 1&#x27;b0;
-        end else begin
-            div &lt;= div + 1&#x27;b1;
-            if (div == &#x27;0) samples &lt;= {samples[2:0], btn};
-            stable_d &lt;= stable;
-        end
+        num &lt;= next_num;
     end
 
-    assign pulse = stable &amp; ~stable_d;
+    assign next_num = num + 1&#x27;b1;
+    assign clk_div = num[n-1];
 endmodule
 
-// -------------------------------------------------------------------
-// seven_seg: 4-digit multiplexed display driver.
-//   * c3 is the LEFTMOST digit, c0 the RIGHTMOST.
-//   * each cN is a 5-bit character code (see the localparams below).
-//   * DIGIT and DISPLAY are ACTIVE-LOW on Basys3.
-//   * DISPLAY = {g, f, e, d, c, b, a}
-// -------------------------------------------------------------------
-module seven_seg (
-    input  logic       clk,
-    input  logic [4:0] c3, c2, c1, c0,
-    output logic [3:0] DIGIT,
-    output logic [6:0] DISPLAY
+
+module debounce #(
+    parameter n = 8
+)(
+    input logic clk,
+    input logic pb,
+    output logic pb_debounced
 );
-    // character codes: 0..9 are the digits themselves
-    localparam logic [4:0] CH_A = 5&#x27;d10, CH_E = 5&#x27;d14, CH_P = 5&#x27;d16,
-                           CH_R = 5&#x27;d17, CH_U = 5&#x27;d18, CH_DASH = 5&#x27;d19,
-                           CH_BLANK = 5&#x27;d31;
-    // &#x27;S&#x27; looks like 5 and &#x27;I&#x27; looks like 1 -&gt; just use 5 and 1
 
-    logic [16:0] refresh = &#x27;0;     // 2^15 cycles per digit (~0.33 ms); &#x27;= 0&#x27; sets the FPGA power-up value
-    logic [4:0]  ch;
+    logic [n-1:0] shift_reg;
 
-    always_ff @(posedge clk) refresh &lt;= refresh + 1&#x27;b1;
-
-    always_comb begin
-        case (refresh[16:15])
-            2&#x27;d0: begin DIGIT = 4&#x27;b1110; ch = c0; end
-            2&#x27;d1: begin DIGIT = 4&#x27;b1101; ch = c1; end
-            2&#x27;d2: begin DIGIT = 4&#x27;b1011; ch = c2; end
-            default: begin DIGIT = 4&#x27;b0111; ch = c3; end
-        endcase
+    always_ff @(posedge clk) begin
+        shift_reg[n-1:1] &lt;= shift_reg[n-2:0];
+        shift_reg[0] &lt;= pb;
     end
 
+    assign pb_debounced = &amp;shift_reg;
+endmodule
+
+
+module one_pulse (
+    input logic clk,
+    input logic pb_in,
+    output logic pb_out
+);
+
+	logic pb_in_delay;
+
+	always_ff @(posedge clk) begin
+		pb_out &lt;= (pb_in &amp; ~pb_in_delay);
+		pb_in_delay &lt;= pb_in;
+	end
+endmodule
+
+
+module SevenSegment(
+	output logic [6:0] display,
+	output logic [3:0] digit,
+	input logic [15:0] nums,
+	input logic rst,
+	input logic clk
+);
+    
+    logic [15:0] clk_divider;
+    logic [3:0] display_num;
+    
+    always_ff @(posedge clk or posedge rst) begin
+    	if (rst) begin
+    		clk_divider &lt;= 16&#x27;d0;
+    	end else begin
+    		clk_divider &lt;= clk_divider + 16&#x27;d1;
+    	end
+    end
+    
+    always_ff @(posedge clk_divider[15] or posedge rst) begin
+    	if (rst) begin
+    		display_num &lt;= 4&#x27;b0000;
+    		digit &lt;= 4&#x27;b1111;
+    	end else begin
+    		case (digit)
+    			4&#x27;b1110 : begin
+					display_num &lt;= nums[7:4];
+					digit &lt;= 4&#x27;b1101;
+    			end
+    			4&#x27;b1101 : begin
+					display_num &lt;= nums[11:8];
+					digit &lt;= 4&#x27;b1011;
+				end
+    			4&#x27;b1011 : begin
+					display_num &lt;= nums[15:12];
+					digit &lt;= 4&#x27;b0111;
+				end
+    			4&#x27;b0111 : begin
+					display_num &lt;= nums[3:0];
+					digit &lt;= 4&#x27;b1110;
+				end
+    			default : begin
+					display_num &lt;= nums[3:0];
+					digit &lt;= 4&#x27;b1110;
+				end				
+    		endcase
+    	end
+    end
+    
     always_comb begin
-        case (ch)
-            5&#x27;d0: DISPLAY = 7&#x27;b1000000;
-            5&#x27;d1: DISPLAY = 7&#x27;b1111001;
-            5&#x27;d2: DISPLAY = 7&#x27;b0100100;
-            5&#x27;d3: DISPLAY = 7&#x27;b0110000;
-            5&#x27;d4: DISPLAY = 7&#x27;b0011001;
-            5&#x27;d5: DISPLAY = 7&#x27;b0010010;
-            5&#x27;d6: DISPLAY = 7&#x27;b0000010;
-            5&#x27;d7: DISPLAY = 7&#x27;b1111000;
-            5&#x27;d8: DISPLAY = 7&#x27;b0000000;
-            5&#x27;d9: DISPLAY = 7&#x27;b0010000;
-            CH_A: DISPLAY = 7&#x27;b0001000;
-            CH_E: DISPLAY = 7&#x27;b0000110;
-            CH_P: DISPLAY = 7&#x27;b0001100;
-            CH_R: DISPLAY = 7&#x27;b0101111;   // lowercase r
-            CH_U: DISPLAY = 7&#x27;b1000001;
-            CH_DASH: DISPLAY = 7&#x27;b0111111;
-            default: DISPLAY = 7&#x27;b1111111; // blank
-        endcase
+    	case (display_num)
+    		4&#x27;d0: display = 7&#x27;b1000000;
+            4&#x27;d1: display = 7&#x27;b1111001;
+            4&#x27;d2: display = 7&#x27;b0100100;
+            4&#x27;d3: display = 7&#x27;b0110000;
+            4&#x27;d4: display = 7&#x27;b0011001;
+            4&#x27;d5: display = 7&#x27;b0010010;
+            4&#x27;d6: display = 7&#x27;b0000010;
+            4&#x27;d7: display = 7&#x27;b1111000;
+            4&#x27;d8: display = 7&#x27;b0000000;
+            4&#x27;d9: display = 7&#x27;b0010000;
+			default : display = 7&#x27;b1111111;
+    	endcase
     end
 endmodule
+
 </pre>
+
+<h3>怎麼接：debounce 用慢時脈，one_pulse 用 100 MHz</h3>
+<p><code>debounce</code> 是 8 個 flip-flop 的移位暫存器，8 個取樣全是 1 才輸出 1。如果直接接 100 MHz，8 個取樣只涵蓋 80 ns，按鈕彈跳是好幾毫秒，幾乎濾不掉（你的 Lab 4 practice 就是這樣接的，大多數時候也能動，偶爾會一按跳兩下）。</p>
+<p>比較穩的接法：用 <code>clock_divider #(.n(16))</code> 做一個 2<sup>16</sup> 週期（約 0.65 ms）的慢時脈給 <code>debounce</code>，8 個取樣就涵蓋約 5 ms；<code>one_pulse</code> 則接 100 MHz 的 <code>clk</code>，這樣每按一次只會產生<strong>一個 clk 週期</strong>的脈衝，主電路（也跑在 clk 上）一定看得到。</p>
+<pre class="code" data-title="按鈕的標準接法（本站所有 C 題解答都這樣接）">logic clk_db;
+clock_divider #(.n(16)) u_cd_db (.clk(clk), .clk_div(clk_db));   // 一個就夠，所有按鈕共用
+
+logic en_d, en_p;
+debounce  u_db_en (.clk(clk_db), .pb(en),   .pb_debounced(en_d));  // 慢時脈取樣
+one_pulse u_op_en (.clk(clk),    .pb_in(en_d), .pb_out(en_p));    // 100 MHz 單脈衝
+
+always_ff @(posedge clk)
+    if (en_p) state <= S_START;      // en_p 只有一個 clk 寬：按一次只觸發一次</pre>
+<div class="warn"><span class="tag">2023 範本是 Verilog 版</span>名稱和 port 順序不一樣：<code>debounce(pb_debounced, pb, clk)</code>、<code>onepulse(pb_debounced, clk, pb_1pulse)</code>。考試拿到哪個版本就照它的 port 名稱接，用名稱連接（<code>.pb(en)</code>）就不怕順序。</div>
 
 <div class="note"><span class="tag">reset 按鈕需要 debounce 嗎？</span>不太需要。reset 只要「有被按到」就好，多 reset 幾次沒差。考題範本也是直接用 <code>rst</code>。</div>
 </section>

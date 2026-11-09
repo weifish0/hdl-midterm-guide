@@ -1,5 +1,6 @@
 // 2022 Exam1 Problem C — player_AI vs player_user grabbing flags (SystemVerilog reference solution)
-// ONE clock (100 MHz) + tick enables: tick0 = 2^24, tick1 = 2^25, tick2 = 2^26 cycles.
+// Built from the PROVIDED modules: clock_divider, debounce, one_pulse, SevenSegment.
+// One clock (100 MHz) for all logic; t24 / t25 / t26 are 1-cycle tick pulses.
 `timescale 1ns/1ps
 module exam1_C #(parameter int T0 = 24, parameter int DB = 16) (
     input  logic        clk,
@@ -13,25 +14,37 @@ module exam1_C #(parameter int T0 = 24, parameter int DB = 16) (
     output logic [6:0]  DISPLAY,
     output logic [15:0] led
 );
+    // ---------------- buttons: provided debounce + one_pulse ----------------
+    // debounce samples on a slow clock (every 2^DB cycles, ~0.65 ms) so its 8 samples
+    // cover ~5 ms of bouncing; one_pulse runs on the 100 MHz clk, so each press becomes
+    // exactly ONE clk cycle that the FSM below cannot miss.
+    logic clk_db;
+    clock_divider #(.n(DB)) u_cd_db (.clk(clk), .clk_div(clk_db));
+    logic en_d, set_d, up_d, down_d;
     logic en_p, set_p, up_p, down_p;
-    btn_pulse #(DB) u_en  (.clk, .rst, .btn(en),   .pulse(en_p));
-    btn_pulse #(DB) u_set (.clk, .rst, .btn(set),  .pulse(set_p));
-    btn_pulse #(DB) u_up  (.clk, .rst, .btn(up),   .pulse(up_p));
-    btn_pulse #(DB) u_dn  (.clk, .rst, .btn(down), .pulse(down_p));
+    debounce  u_db_en   (.clk(clk_db), .pb(en), .pb_debounced(en_d));
+    one_pulse u_op_en   (.clk(clk),    .pb_in(en_d), .pb_out(en_p));
+    debounce  u_db_set  (.clk(clk_db), .pb(set), .pb_debounced(set_d));
+    one_pulse u_op_set  (.clk(clk),    .pb_in(set_d), .pb_out(set_p));
+    debounce  u_db_up   (.clk(clk_db), .pb(up), .pb_debounced(up_d));
+    one_pulse u_op_up   (.clk(clk),    .pb_in(up_d), .pb_out(up_p));
+    debounce  u_db_down (.clk(clk_db), .pb(down), .pb_debounced(down_d));
+    one_pulse u_op_down (.clk(clk),    .pb_in(down_d), .pb_out(down_p));
 
     typedef enum logic [1:0] {S_RESET, S_START, S_PAUSE, S_FINISH} state_t;
     state_t state;
 
-    // free-running counter -> tick pulses
-    logic [T0+1:0] cnt;
-    logic t24, t25, t26;
-    always_ff @(posedge clk) begin
-        if (rst) cnt <= '0;
-        else     cnt <= cnt + 1'b1;
-    end
-    assign t24 = (cnt[T0-1:0] == '1);
-    assign t25 = (cnt[T0:0]   == '1);
-    assign t26 = (cnt         == '1);
+    // ---------------- ticks: provided clock_divider + one_pulse ----------------
+    // clk_div falls (1 -> 0) exactly when its counter wraps, i.e. once every 2^n cycles.
+    // one_pulse(~clk_div) turns that moment into a 1-cycle "tick" in the 100 MHz domain.
+    // All dividers start at 0, so every 2^(T0+2) tick also lands on a 2^(T0+1) and 2^T0 tick.
+    logic cd0, cd1, cd2, t24, t25, t26;
+    clock_divider #(.n(T0))   u_cd0 (.clk(clk), .clk_div(cd0));
+    clock_divider #(.n(T0+1)) u_cd1 (.clk(clk), .clk_div(cd1));
+    clock_divider #(.n(T0+2)) u_cd2 (.clk(clk), .clk_div(cd2));
+    one_pulse u_t0 (.clk(clk), .pb_in(~cd0), .pb_out(t24));   // every 2^24 cycles
+    one_pulse u_t1 (.clk(clk), .pb_in(~cd1), .pb_out(t25));   // every 2^25
+    one_pulse u_t2 (.clk(clk), .pb_in(~cd2), .pb_out(t26));   // every 2^26
 
     // ---------------- players ----------------
     logic [3:0]  ai;          // AI position
@@ -132,115 +145,148 @@ module exam1_C #(parameter int T0 = 24, parameter int DB = 16) (
     end
 
     // ---------------- outputs ----------------
-    localparam logic [4:0] CH_A = 5'd10, CH_E = 5'd14, CH_R = 5'd17, CH_U = 5'd18;
-    logic [4:0] c3, c2, c1, c0;
+    // codes for SevenSegment: 0-9 digits (1 = 'I', 5 = 'S'), 10 = A, 11 = E, 13 = U, 14 = r
+    localparam logic [3:0] CH_A = 4'd10, CH_E = 4'd11, CH_U = 4'd13, CH_R = 4'd14;
+    logic [15:0] nums;
     always_comb begin
         if (state == S_FINISH) begin
             led = led_phase ? 16'hAAAA : 16'h5555;
-            if (ai_sc == 4'd10) {c3, c2, c1, c0} = {CH_A, 5'd1, CH_A, 5'd1};     // "AIAI"
-            else                {c3, c2, c1, c0} = {CH_U, 5'd5, CH_E, CH_R};     // "USER"
+            if (ai_sc == 4'd10) nums = {CH_A, 4'd1, CH_A, 4'd1};     // "AIAI"
+            else                nums = {CH_U, 4'd5, CH_E, CH_R};     // "USEr"
         end else begin
-            led = flag | amask | umask;
-            c3 = (ai_sc == 4'd10) ? 5'd1 : 5'd0;
-            c2 = (ai_sc == 4'd10) ? 5'd0 : {1'b0, ai_sc};
-            c1 = (us_sc == 4'd10) ? 5'd1 : 5'd0;
-            c0 = (us_sc == 4'd10) ? 5'd0 : {1'b0, us_sc};
+            led  = flag | amask | umask;
+            nums = {(ai_sc == 4'd10) ? 4'd1 : 4'd0, (ai_sc == 4'd10) ? 4'd0 : ai_sc,
+                    (us_sc == 4'd10) ? 4'd1 : 4'd0, (us_sc == 4'd10) ? 4'd0 : us_sc};
         end
     end
 
-    seven_seg u_seg (.clk, .c3, .c2, .c1, .c0, .DIGIT, .DISPLAY);
+    SevenSegment u_seg (.display(DISPLAY), .digit(DIGIT), .nums(nums), .rst(rst), .clk(clk));
 endmodule
 
 // ===================================================================
-//  Reusable helper modules for FPGA problems (Basys3, 100 MHz clock)
-//  Paste these at the bottom of your exam file: the exam requires
-//  ONE file that contains every module you use.
+// Provided modules (given in the exam: clock_divider, debounce, one_pulse,
+// SevenSegment). Pasted unchanged, except: SevenSegment got codes 10 (A), 11 (E), 13 (U), 14 (r).
 // ===================================================================
-
-// -------------------------------------------------------------------
-// btn_pulse: debounce + one-pulse in ONE clock domain (100 MHz).
-//   * The button is sampled once every 2^DB clock cycles
-//     (DB = 16 -> every 0.65 ms), shifted into a 4-bit register.
-//   * "stable" = the last 4 samples were all 1.
-//   * pulse   = rising edge of "stable", exactly ONE 100 MHz cycle wide.
-// -------------------------------------------------------------------
-module btn_pulse #(parameter int DB = 16) (
-    input  logic clk,
-    input  logic rst,
-    input  logic btn,
-    output logic pulse
+module clock_divider #(
+    parameter n = 27 // 2^27 / 100M Hz = 1.34s
+)(
+    input logic  clk,
+    output logic clk_div  
 );
-    logic [DB-1:0] div;
-    logic [3:0]    samples;
-    logic          stable, stable_d;
 
-    assign stable = &samples;
+    logic [n-1:0] num;
+    logic [n-1:0] next_num;
 
     always_ff @(posedge clk) begin
-        if (rst) begin
-            div <= '0; samples <= '0; stable_d <= 1'b0;
-        end else begin
-            div <= div + 1'b1;
-            if (div == '0) samples <= {samples[2:0], btn};
-            stable_d <= stable;
-        end
+        num <= next_num;
     end
 
-    assign pulse = stable & ~stable_d;
+    assign next_num = num + 1'b1;
+    assign clk_div = num[n-1];
 endmodule
 
-// -------------------------------------------------------------------
-// seven_seg: 4-digit multiplexed display driver.
-//   * c3 is the LEFTMOST digit, c0 the RIGHTMOST.
-//   * each cN is a 5-bit character code (see the localparams below).
-//   * DIGIT and DISPLAY are ACTIVE-LOW on Basys3.
-//   * DISPLAY = {g, f, e, d, c, b, a}
-// -------------------------------------------------------------------
-module seven_seg (
-    input  logic       clk,
-    input  logic [4:0] c3, c2, c1, c0,
-    output logic [3:0] DIGIT,
-    output logic [6:0] DISPLAY
+
+module debounce #(
+    parameter n = 8
+)(
+    input logic clk,
+    input logic pb,
+    output logic pb_debounced
 );
-    // character codes: 0..9 are the digits themselves
-    localparam logic [4:0] CH_A = 5'd10, CH_E = 5'd14, CH_P = 5'd16,
-                           CH_R = 5'd17, CH_U = 5'd18, CH_DASH = 5'd19,
-                           CH_BLANK = 5'd31;
-    // 'S' looks like 5 and 'I' looks like 1 -> just use 5 and 1
 
-    logic [16:0] refresh = '0;     // 2^15 cycles per digit (~0.33 ms); '= 0' sets the FPGA power-up value
-    logic [4:0]  ch;
+    logic [n-1:0] shift_reg;
 
-    always_ff @(posedge clk) refresh <= refresh + 1'b1;
-
-    always_comb begin
-        case (refresh[16:15])
-            2'd0: begin DIGIT = 4'b1110; ch = c0; end
-            2'd1: begin DIGIT = 4'b1101; ch = c1; end
-            2'd2: begin DIGIT = 4'b1011; ch = c2; end
-            default: begin DIGIT = 4'b0111; ch = c3; end
-        endcase
+    always_ff @(posedge clk) begin
+        shift_reg[n-1:1] <= shift_reg[n-2:0];
+        shift_reg[0] <= pb;
     end
 
+    assign pb_debounced = &shift_reg;
+endmodule
+
+
+module one_pulse (
+    input logic clk,
+    input logic pb_in,
+    output logic pb_out
+);
+
+	logic pb_in_delay;
+
+	always_ff @(posedge clk) begin
+		pb_out <= (pb_in & ~pb_in_delay);
+		pb_in_delay <= pb_in;
+	end
+endmodule
+
+
+module SevenSegment(
+	output logic [6:0] display,
+	output logic [3:0] digit,
+	input logic [15:0] nums,
+	input logic rst,
+	input logic clk
+);
+    
+    logic [15:0] clk_divider;
+    logic [3:0] display_num;
+    
+    always_ff @(posedge clk or posedge rst) begin
+    	if (rst) begin
+    		clk_divider <= 16'd0;
+    	end else begin
+    		clk_divider <= clk_divider + 16'd1;
+    	end
+    end
+    
+    always_ff @(posedge clk_divider[15] or posedge rst) begin
+    	if (rst) begin
+    		display_num <= 4'b0000;
+    		digit <= 4'b1111;
+    	end else begin
+    		case (digit)
+    			4'b1110 : begin
+					display_num <= nums[7:4];
+					digit <= 4'b1101;
+    			end
+    			4'b1101 : begin
+					display_num <= nums[11:8];
+					digit <= 4'b1011;
+				end
+    			4'b1011 : begin
+					display_num <= nums[15:12];
+					digit <= 4'b0111;
+				end
+    			4'b0111 : begin
+					display_num <= nums[3:0];
+					digit <= 4'b1110;
+				end
+    			default : begin
+					display_num <= nums[3:0];
+					digit <= 4'b1110;
+				end				
+    		endcase
+    	end
+    end
+    
     always_comb begin
-        case (ch)
-            5'd0: DISPLAY = 7'b1000000;
-            5'd1: DISPLAY = 7'b1111001;
-            5'd2: DISPLAY = 7'b0100100;
-            5'd3: DISPLAY = 7'b0110000;
-            5'd4: DISPLAY = 7'b0011001;
-            5'd5: DISPLAY = 7'b0010010;
-            5'd6: DISPLAY = 7'b0000010;
-            5'd7: DISPLAY = 7'b1111000;
-            5'd8: DISPLAY = 7'b0000000;
-            5'd9: DISPLAY = 7'b0010000;
-            CH_A: DISPLAY = 7'b0001000;
-            CH_E: DISPLAY = 7'b0000110;
-            CH_P: DISPLAY = 7'b0001100;
-            CH_R: DISPLAY = 7'b0101111;   // lowercase r
-            CH_U: DISPLAY = 7'b1000001;
-            CH_DASH: DISPLAY = 7'b0111111;
-            default: DISPLAY = 7'b1111111; // blank
-        endcase
+    	case (display_num)
+    		4'd0: display = 7'b1000000;
+            4'd1: display = 7'b1111001;
+            4'd2: display = 7'b0100100;
+            4'd3: display = 7'b0110000;
+            4'd4: display = 7'b0011001;
+            4'd5: display = 7'b0010010;
+            4'd6: display = 7'b0000010;
+            4'd7: display = 7'b1111000;
+            4'd8: display = 7'b0000000;
+            4'd9: display = 7'b0010000;
+            4'd10: display = 7'b0001000;   // A  <- added for this problem
+            4'd11: display = 7'b0000110;   // E  <- added for this problem
+            4'd13: display = 7'b1000001;   // U  <- added for this problem
+            4'd14: display = 7'b0101111;   // r  <- added for this problem
+			default : display = 7'b1111111;
+    	endcase
     end
 endmodule
+

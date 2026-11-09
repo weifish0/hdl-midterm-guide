@@ -1,5 +1,6 @@
 // Mock Exam Problem C — LED Whack-a-Mole (reference solution)
 //   IDLE --btnD--> PLAY --(time = 0)--> OVER --btnD--> IDLE      rst (btnC) -> IDLE at any time
+// Built from the PROVIDED modules (clock_divider, debounce, one_pulse, SevenSegment).
 // One 100 MHz clock everywhere; slow events are 1-cycle "tick" pulses.
 `timescale 1ns/1ps
 module mock_C #(
@@ -17,11 +18,22 @@ module mock_C #(
     output logic [6:0]  DISPLAY,
     output logic [15:0] led
 );
+    // ---------------- buttons: provided debounce + one_pulse ----------------
+    // debounce samples on a slow clock (every 2^DB cycles, ~0.65 ms) so its 8 samples
+    // cover ~5 ms of bouncing; one_pulse runs on the 100 MHz clk, so each press becomes
+    // exactly ONE clk cycle that the FSM below cannot miss.
+    logic clk_db;
+    clock_divider #(.n(DB)) u_cd_db (.clk(clk), .clk_div(clk_db));
+    logic pL_d, pR_d, pU_d, pD_d;
     logic pL, pR, pU, pD;
-    btn_pulse #(DB) u0 (.clk, .rst, .btn(btnL), .pulse(pL));
-    btn_pulse #(DB) u1 (.clk, .rst, .btn(btnR), .pulse(pR));
-    btn_pulse #(DB) u2 (.clk, .rst, .btn(btnU), .pulse(pU));
-    btn_pulse #(DB) u3 (.clk, .rst, .btn(btnD), .pulse(pD));
+    debounce  u_db_pL   (.clk(clk_db), .pb(btnL), .pb_debounced(pL_d));
+    one_pulse u_op_pL   (.clk(clk),    .pb_in(pL_d), .pb_out(pL));
+    debounce  u_db_pR   (.clk(clk_db), .pb(btnR), .pb_debounced(pR_d));
+    one_pulse u_op_pR   (.clk(clk),    .pb_in(pR_d), .pb_out(pR));
+    debounce  u_db_pU   (.clk(clk_db), .pb(btnU), .pb_debounced(pU_d));
+    one_pulse u_op_pU   (.clk(clk),    .pb_in(pU_d), .pb_out(pU));
+    debounce  u_db_pD   (.clk(clk_db), .pb(btnD), .pb_debounced(pD_d));
+    one_pulse u_op_pD   (.clk(clk),    .pb_in(pD_d), .pb_out(pD));
 
     typedef enum logic [1:0] {IDLE, PLAY, OVER} state_t;
     state_t state;
@@ -42,8 +54,9 @@ module mock_C #(
     logic [LIFE-1:0] life_cnt;
     logic            life_over;
     assign life_over = (life_cnt == '1);
-    logic [24:0]     blink = '0;     // free-running, blink[23] toggles every 2^23
-    always_ff @(posedge clk) blink <= blink + 1'b1;
+    logic blink23, blink24;          // provided clock_divider used as plain square waves
+    clock_divider #(.n(24)) u_bl23 (.clk(clk), .clk_div(blink23));   // toggles every 2^23
+    clock_divider #(.n(25)) u_bl24 (.clk(clk), .clk_div(blink24));   // toggles every 2^24
 
     logic [3:0] hammer, mole;
     logic       has_mole;
@@ -95,120 +108,151 @@ module mock_C #(
     // ---- outputs ----
     logic [15:0] hmask, mmask;
     assign hmask = 16'b1 << hammer;
-    assign mmask = (has_mole && blink[23]) ? (16'b1 << mole) : 16'b0;   // mole blinks
+    assign mmask = (has_mole && blink23) ? (16'b1 << mole) : 16'b0;   // mole blinks
 
     always_comb begin
         case (state)
             IDLE:    led = hmask;
             PLAY:    led = hmask | mmask;
-            default: led = blink[24] ? 16'hFFFF : 16'h0000;
+            default: led = blink24 ? 16'hFFFF : 16'h0000;
         endcase
     end
 
     // 7-seg: [time tens][time ones][score tens][score ones]; OVER shows "--" + score
-    localparam logic [4:0] DASH = 5'd19;
-    logic [4:0] c3, c2, c1, c0;
+    localparam logic [3:0] DASH = 4'd15;
+    logic [15:0] nums;
+    logic [3:0]  t_tens, t_ones;
     always_comb begin
-        c3 = (time_left >= 5'd20) ? 5'd2 : (time_left >= 5'd10) ? 5'd1 : 5'd0;
-        c2 = time_left - ((time_left >= 5'd20) ? 5'd20 : (time_left >= 5'd10) ? 5'd10 : 5'd0);
-        c1 = 5'(score / 10);         // "/" and "%" by constants are fine for synthesis
-        c0 = 5'(score % 10);
-        if (state == OVER) begin c3 = DASH; c2 = DASH; end
+        t_tens = (time_left >= 5'd20) ? 4'd2 : (time_left >= 5'd10) ? 4'd1 : 4'd0;
+        t_ones = 4'(time_left - ((time_left >= 5'd20) ? 5'd20 : (time_left >= 5'd10) ? 5'd10 : 5'd0));
+        nums   = {t_tens, t_ones, 4'(score / 10), 4'(score % 10)};   // "/" by a constant is fine here
+        if (state == OVER) nums[15:8] = {DASH, DASH};
     end
 
-    seven_seg u_seg (.clk, .c3, .c2, .c1, .c0, .DIGIT, .DISPLAY);
+    SevenSegment u_seg (.display(DISPLAY), .digit(DIGIT), .nums(nums), .rst(rst), .clk(clk));
 endmodule
 
 // ===================================================================
-//  Reusable helper modules for FPGA problems (Basys3, 100 MHz clock)
-//  Paste these at the bottom of your exam file: the exam requires
-//  ONE file that contains every module you use.
+// Provided modules (given in the exam: clock_divider, debounce, one_pulse,
+// SevenSegment). Pasted unchanged, except: SevenSegment got code 15 (-).
 // ===================================================================
-
-// -------------------------------------------------------------------
-// btn_pulse: debounce + one-pulse in ONE clock domain (100 MHz).
-//   * The button is sampled once every 2^DB clock cycles
-//     (DB = 16 -> every 0.65 ms), shifted into a 4-bit register.
-//   * "stable" = the last 4 samples were all 1.
-//   * pulse   = rising edge of "stable", exactly ONE 100 MHz cycle wide.
-// -------------------------------------------------------------------
-module btn_pulse #(parameter int DB = 16) (
-    input  logic clk,
-    input  logic rst,
-    input  logic btn,
-    output logic pulse
+module clock_divider #(
+    parameter n = 27 // 2^27 / 100M Hz = 1.34s
+)(
+    input logic  clk,
+    output logic clk_div  
 );
-    logic [DB-1:0] div;
-    logic [3:0]    samples;
-    logic          stable, stable_d;
 
-    assign stable = &samples;
+    logic [n-1:0] num;
+    logic [n-1:0] next_num;
 
     always_ff @(posedge clk) begin
-        if (rst) begin
-            div <= '0; samples <= '0; stable_d <= 1'b0;
-        end else begin
-            div <= div + 1'b1;
-            if (div == '0) samples <= {samples[2:0], btn};
-            stable_d <= stable;
-        end
+        num <= next_num;
     end
 
-    assign pulse = stable & ~stable_d;
+    assign next_num = num + 1'b1;
+    assign clk_div = num[n-1];
 endmodule
 
-// -------------------------------------------------------------------
-// seven_seg: 4-digit multiplexed display driver.
-//   * c3 is the LEFTMOST digit, c0 the RIGHTMOST.
-//   * each cN is a 5-bit character code (see the localparams below).
-//   * DIGIT and DISPLAY are ACTIVE-LOW on Basys3.
-//   * DISPLAY = {g, f, e, d, c, b, a}
-// -------------------------------------------------------------------
-module seven_seg (
-    input  logic       clk,
-    input  logic [4:0] c3, c2, c1, c0,
-    output logic [3:0] DIGIT,
-    output logic [6:0] DISPLAY
+
+module debounce #(
+    parameter n = 8
+)(
+    input logic clk,
+    input logic pb,
+    output logic pb_debounced
 );
-    // character codes: 0..9 are the digits themselves
-    localparam logic [4:0] CH_A = 5'd10, CH_E = 5'd14, CH_P = 5'd16,
-                           CH_R = 5'd17, CH_U = 5'd18, CH_DASH = 5'd19,
-                           CH_BLANK = 5'd31;
-    // 'S' looks like 5 and 'I' looks like 1 -> just use 5 and 1
 
-    logic [16:0] refresh = '0;     // 2^15 cycles per digit (~0.33 ms); '= 0' sets the FPGA power-up value
-    logic [4:0]  ch;
+    logic [n-1:0] shift_reg;
 
-    always_ff @(posedge clk) refresh <= refresh + 1'b1;
-
-    always_comb begin
-        case (refresh[16:15])
-            2'd0: begin DIGIT = 4'b1110; ch = c0; end
-            2'd1: begin DIGIT = 4'b1101; ch = c1; end
-            2'd2: begin DIGIT = 4'b1011; ch = c2; end
-            default: begin DIGIT = 4'b0111; ch = c3; end
-        endcase
+    always_ff @(posedge clk) begin
+        shift_reg[n-1:1] <= shift_reg[n-2:0];
+        shift_reg[0] <= pb;
     end
 
+    assign pb_debounced = &shift_reg;
+endmodule
+
+
+module one_pulse (
+    input logic clk,
+    input logic pb_in,
+    output logic pb_out
+);
+
+	logic pb_in_delay;
+
+	always_ff @(posedge clk) begin
+		pb_out <= (pb_in & ~pb_in_delay);
+		pb_in_delay <= pb_in;
+	end
+endmodule
+
+
+module SevenSegment(
+	output logic [6:0] display,
+	output logic [3:0] digit,
+	input logic [15:0] nums,
+	input logic rst,
+	input logic clk
+);
+    
+    logic [15:0] clk_divider;
+    logic [3:0] display_num;
+    
+    always_ff @(posedge clk or posedge rst) begin
+    	if (rst) begin
+    		clk_divider <= 16'd0;
+    	end else begin
+    		clk_divider <= clk_divider + 16'd1;
+    	end
+    end
+    
+    always_ff @(posedge clk_divider[15] or posedge rst) begin
+    	if (rst) begin
+    		display_num <= 4'b0000;
+    		digit <= 4'b1111;
+    	end else begin
+    		case (digit)
+    			4'b1110 : begin
+					display_num <= nums[7:4];
+					digit <= 4'b1101;
+    			end
+    			4'b1101 : begin
+					display_num <= nums[11:8];
+					digit <= 4'b1011;
+				end
+    			4'b1011 : begin
+					display_num <= nums[15:12];
+					digit <= 4'b0111;
+				end
+    			4'b0111 : begin
+					display_num <= nums[3:0];
+					digit <= 4'b1110;
+				end
+    			default : begin
+					display_num <= nums[3:0];
+					digit <= 4'b1110;
+				end				
+    		endcase
+    	end
+    end
+    
     always_comb begin
-        case (ch)
-            5'd0: DISPLAY = 7'b1000000;
-            5'd1: DISPLAY = 7'b1111001;
-            5'd2: DISPLAY = 7'b0100100;
-            5'd3: DISPLAY = 7'b0110000;
-            5'd4: DISPLAY = 7'b0011001;
-            5'd5: DISPLAY = 7'b0010010;
-            5'd6: DISPLAY = 7'b0000010;
-            5'd7: DISPLAY = 7'b1111000;
-            5'd8: DISPLAY = 7'b0000000;
-            5'd9: DISPLAY = 7'b0010000;
-            CH_A: DISPLAY = 7'b0001000;
-            CH_E: DISPLAY = 7'b0000110;
-            CH_P: DISPLAY = 7'b0001100;
-            CH_R: DISPLAY = 7'b0101111;   // lowercase r
-            CH_U: DISPLAY = 7'b1000001;
-            CH_DASH: DISPLAY = 7'b0111111;
-            default: DISPLAY = 7'b1111111; // blank
-        endcase
+    	case (display_num)
+    		4'd0: display = 7'b1000000;
+            4'd1: display = 7'b1111001;
+            4'd2: display = 7'b0100100;
+            4'd3: display = 7'b0110000;
+            4'd4: display = 7'b0011001;
+            4'd5: display = 7'b0010010;
+            4'd6: display = 7'b0000010;
+            4'd7: display = 7'b1111000;
+            4'd8: display = 7'b0000000;
+            4'd9: display = 7'b0010000;
+            4'd15: display = 7'b0111111;   // -  <- added for this problem
+			default : display = 7'b1111111;
+    	endcase
     end
 endmodule
+

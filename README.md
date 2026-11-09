@@ -22,7 +22,7 @@
 
 - `code/exam2023/exam1_A.sv`、`exam1_B.sv`：助教原始 testbench 與 pattern，28/28、30/30。
 - `code/exam2021`、`code/exam2022` 的 A、B：依題目規則的 Python 參考模型產生 pattern，xsim 全對。
-- 三年的 `exam1_C.sv`：Vivado 2022.1 合成成功、無 latch；縮短時間的模擬檢查過題目範例情境。沒有上板實測。
+- 三年的 `exam1_C.sv` 與 `mock_C.sv`：只用考試提供的模組（`code/common/provided.sv`：clock_divider、debounce、one_pulse、SevenSegment，取自 Lab 4 advanced 的 SV 版本，SevenSegment 只在 case 表加字母）。Vivado 2022.1 合成成功、無 latch；縮短時間的模擬檢查過題目範例情境。沒有上板實測。
 - `code/labs`：Lab 1、2、5 通過課程 testbench；Lab 3、4 通過編譯。
 - `code/mock`：A、B 通過附的 testbench；C 通過模擬檢查。
 

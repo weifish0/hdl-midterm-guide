@@ -368,13 +368,13 @@ end</pre>
 mux u_mux (.a(and_ab), .b(or_ab), .c(C), .y(out));
 
 // 2) .name 簡寫：外面的訊號名稱跟 port 一樣時
-seven_seg u_seg (.clk, .c3, .c2, .c1, .c0, .DIGIT, .DISPLAY);
+debounce u_db (.clk, .pb, .pb_debounced);   // 外面剛好有同名訊號 clk、pb、pb_debounced
 
 // 3) .* 全部自動接同名訊號（testbench 很常用）
 exam1_A dut (.*);
 
 // 參數覆寫
-btn_pulse #(.DB(16)) u_btn (.clk, .rst, .btn(en), .pulse(en_p));</pre>
+clock_divider #(.n(25)) u_cd (.clk(clk), .clk_div(clk_25));   // n 改成 25</pre>
 <div class="warn"><span class="tag">注意</span>依「順序」接（<code>mux u(a, b, c, y);</code>）容易接錯，Lab 1 testbench 也明確要求用名稱接。</div>
 
 <h3>Gate-level（Lab 1）</h3>
@@ -417,7 +417,7 @@ endmodule</pre>
 </figure>
 
 <h3>一個檔案放多個模組</h3>
-<p>C 題要求「所有模組放同一個檔案」。直接把子模組寫在主模組 <code>endmodule</code> 後面就好，順序沒關係。<strong>不要重複定義同名模組</strong>（例如範本已經有 <code>debounce</code>，你又貼一個）。</p>
+<p>C 題要求「所有模組放同一個檔案」。考試提供的 <code>clock_divider</code>、<code>debounce</code>、<code>onepulse</code>、<code>SevenSegment</code> 通常已經在範本檔案裡，直接在主模組裡實例化就好。自己加的子模組寫在 <code>endmodule</code> 後面，順序沒關係。<strong>不要重複定義同名模組</strong>（例如範本已經有 <code>debounce</code>，你又貼一個）。</p>
 </section>
 
 <!-- ============================================================ -->
